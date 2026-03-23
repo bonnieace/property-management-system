@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nyathira Homes — Thika, Kiambu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --cream: #F5F0E8;
+  --warm-white: #FDFAF4;
+  --charcoal: #1C1A17;
+  --earth: #8B6F47;
+  --earth-light: #C4A882;
+  --earth-dark: #5C4830;
+  --sage: #7A8C6E;
+  --rust: #C4622D;
+  --rust-light: #E8896A;
+  --rust-pale: #FAE8DF;
+  --gold: #C49A2D;
+  --text-muted: #6B6358;
+  --text-light: #9A9087;
+  --border: rgba(139,111,71,.15);
+  --border-strong: rgba(139,111,71,.3);
+  --shadow-sm: 0 2px 12px rgba(28,26,23,.06);
+  --shadow-md: 0 8px 32px rgba(28,26,23,.1);
+  --shadow-lg: 0 20px 60px rgba(28,26,23,.15);
+  --radius: 12px;
+  --radius-lg: 20px;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'DM Sans', sans-serif;
+  --transition: all .3s cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:var(--font-body);background:var(--warm-white);color:var(--charcoal);line-height:1.6;overflow-x:hidden;}
+
+/* ─── TYPOGRAPHY ─── */
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:400;line-height:1.15}
+h1{font-size:clamp(2.8rem,6vw,5.5rem);letter-spacing:-.01em}
+h2{font-size:clamp(2rem,4vw,3.2rem)}
+h3{font-size:clamp(1.4rem,2.5vw,1.9rem)}
+h4{font-size:1.2rem}
+p{line-height:1.75}
+em{font-style:italic}
+
+/* ─── LAYOUT ─── */
+.container{max-width:1240px;margin:0 auto;padding:0 24px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+
+/* ─── NAV ─── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 0;transition:var(--transition)}
+nav.scrolled{background:rgba(253,250,244,.92);backdrop-filter:blur(16px);padding:14px 0;border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;max-width:1240px;margin:0 auto;padding:0 24px}
+.logo{font-family:var(--font-display);font-size:1.5rem;font-weight:500;color:var(--charcoal);text-decoration:none;letter-spacing:.02em}
+.logo span{color:var(--earth);font-style:italic}
+.nav-links{display:flex;align-items:center;gap:32px;list-style:none}
+.nav-links a{text-decoration:none;color:var(--charcoal);font-size:.875rem;font-weight:400;letter-spacing:.04em;text-transform:uppercase;transition:color .2s;position:relative}
+.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:1px;background:var(--earth);transition:width .3s}
+.nav-links a:hover::after{width:100%}
+.nav-links a:hover{color:var(--earth)}
+.nav-cta{background:var(--earth);color:#fff !important;padding:10px 22px;border-radius:99px;font-size:.8rem !important;letter-spacing:.08em !important;transition:var(--transition) !important}
+.nav-cta:hover{background:var(--earth-dark) !important}
+.nav-cta::after{display:none !important}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:4px}
+.hamburger span{display:block;width:22px;height:1.5px;background:var(--charcoal);transition:var(--transition)}
+.mobile-nav{display:none;position:fixed;inset:0;background:var(--warm-white);z-index:99;padding:100px 32px 40px;flex-direction:column;gap:0}
+.mobile-nav.open{display:flex}
+.mobile-nav a{font-family:var(--font-display);font-size:2.4rem;font-weight:300;color:var(--charcoal);text-decoration:none;padding:16px 0;border-bottom:1px solid var(--border);transition:color .2s}
+.mobile-nav a:hover{color:var(--earth)}
+
+/* ─── HERO ─── */
+.hero{min-height:100vh;display:flex;align-items:flex-end;padding-bottom:80px;position:relative;overflow:hidden;background:#1C1A17}
+.hero-bg{position:absolute;inset:0;background:url('https://nyathirahomes.com/assets/images/DSC_0544.webp') center/cover no-repeat;opacity:.45;transform:scale(1.05);animation:heroZoom 12s ease-out forwards}
+@keyframes heroZoom{to{transform:scale(1)}}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(28,26,23,.85) 0%,rgba(28,26,23,.2) 60%,transparent 100%)}
+.hero-content{position:relative;z-index:2;color:#fff;max-width:760px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);padding:7px 16px;border-radius:99px;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:28px;animation:fadeUp .8s .2s both}
+.hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--rust-light)}
+.hero h1{animation:fadeUp .8s .4s both;color:#fff;margin-bottom:20px}
+.hero h1 em{color:var(--earth-light)}
+.hero-sub{font-size:1.05rem;color:rgba(255,255,255,.75);max-width:500px;margin-bottom:40px;animation:fadeUp .8s .6s both}
+.hero-actions{display:flex;gap:16px;flex-wrap:wrap;animation:fadeUp .8s .8s both}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;border-radius:99px;font-family:var(--font-body);font-size:.875rem;font-weight:500;letter-spacing:.04em;cursor:pointer;transition:var(--transition);text-decoration:none;border:none}
+.btn-primary{background:var(--earth);color:#fff}
+.btn-primary:hover{background:var(--earth-dark);transform:translateY(-1px);box-shadow:0 8px 24px rgba(139,111,71,.3)}
+.btn-outline{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)}
+.btn-outline:hover{background:rgba(255,255,255,.1);border-color:#fff}
+.btn-sm{padding:10px 20px;font-size:.8rem}
+.btn-rust{background:var(--rust);color:#fff}
+.btn-rust:hover{background:#A3501F;transform:translateY(-1px);box-shadow:0 8px 24px rgba(196,98,45,.3)}
+.hero-stats{display:flex;gap:48px;margin-top:60px;padding-top:40px;border-top:1px solid rgba(255,255,255,.15);animation:fadeUp .8s 1s both}
+.hero-stat-val{font-family:var(--font-display);font-size:2.2rem;font-weight:300;color:#fff;line-height:1}
+.hero-stat-label{font-size:.75rem;color:rgba(255,255,255,.55);letter-spacing:.08em;text-transform:uppercase;margin-top:4px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── SECTION HEADERS ─── */
+.section-header{margin-bottom:56px}
+.section-tag{display:inline-block;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--earth);margin-bottom:12px;font-weight:500}
+.section-header h2{margin-bottom:16px}
+.section-header p{color:var(--text-muted);max-width:520px;font-size:.95rem}
+.section-divider{width:40px;height:1px;background:var(--earth);margin:20px 0}
+
+/* ─── PROPERTIES SECTION ─── */
+.properties{padding:120px 0}
+.property-tabs{display:flex;gap:4px;margin-bottom:48px;background:var(--cream);padding:4px;border-radius:99px;width:fit-content}
+.prop-tab{padding:10px 24px;border-radius:99px;font-size:.85rem;font-weight:500;cursor:pointer;transition:var(--transition);border:none;background:transparent;color:var(--text-muted);letter-spacing:.03em}
+.prop-tab.active{background:#fff;color:var(--charcoal);box-shadow:var(--shadow-sm)}
+.prop-tab:hover:not(.active){color:var(--charcoal)}
+.property-panel{display:none}
+.property-panel.active{display:block}
+
+/* ─── LISTING CARDS ─── */
+.listings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:24px}
+.listing-card{background:#fff;border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);border:1px solid var(--border);transition:var(--transition);cursor:pointer}
+.listing-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-md)}
+.listing-img-wrap{position:relative;height:220px;overflow:hidden}
+.listing-img-wrap img{width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.4,0,.2,1)}
+.listing-card:hover .listing-img-wrap img{transform:scale(1.05)}
+.listing-badge{position:absolute;top:14px;left:14px;padding:5px 12px;border-radius:99px;font-size:.7rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+.badge-rent{background:rgba(28,26,23,.7);color:#fff;backdrop-filter:blur(4px)}
+.badge-airbnb{background:var(--rust);color:#fff}
+.badge-available{position:absolute;top:14px;right:14px;display:flex;align-items:center;gap:5px;background:rgba(122,140,110,.9);color:#fff;padding:5px 11px;border-radius:99px;font-size:.68rem;font-weight:500;letter-spacing:.05em}
+.badge-available::before{content:'';width:5px;height:5px;border-radius:50%;background:#fff}
+.listing-body{padding:20px}
+.listing-price{font-family:var(--font-display);font-size:1.6rem;font-weight:400;color:var(--earth);line-height:1}
+.listing-price span{font-family:var(--font-body);font-size:.8rem;color:var(--text-muted);font-weight:400;margin-left:2px}
+.listing-title{font-size:1rem;font-weight:500;margin:8px 0 4px;color:var(--charcoal)}
+.listing-location{font-size:.8rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;margin-bottom:16px}
+.listing-specs{display:flex;gap:16px;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px}
+.spec-item{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text-muted)}
+.spec-icon{font-size:.9rem}
+.listing-actions{display:flex;gap:8px}
+.listing-actions .btn{flex:1;justify-content:center;padding:10px 16px;font-size:.8rem}
+
+/* ─── PROPERTY HERO ─── */
+.prop-hero{background:var(--cream);border-radius:var(--radius-lg);padding:40px;margin-bottom:40px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.prop-hero-img{border-radius:var(--radius);overflow:hidden;height:360px}
+.prop-hero-img img{width:100%;height:100%;object-fit:cover}
+.prop-features{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}
+.prop-features li{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--text-muted)}
+.prop-features li::before{content:'✓';color:var(--sage);font-weight:600;font-size:.8rem}
+
+/* ─── GALLERY ─── */
+.gallery{padding:100px 0;background:var(--cream)}
+.gallery-masonry{columns:3;gap:16px;margin-top:48px}
+.gallery-item{break-inside:avoid;margin-bottom:16px;border-radius:var(--radius);overflow:hidden;cursor:pointer;position:relative}
+.gallery-item img{width:100%;display:block;transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.gallery-item:hover img{transform:scale(1.03)}
+.gallery-item-overlay{position:absolute;inset:0;background:rgba(28,26,23,.0);transition:background .3s;display:flex;align-items:center;justify-content:center}
+.gallery-item:hover .gallery-item-overlay{background:rgba(28,26,23,.15)}
+.gallery-tabs{display:flex;gap:4px;margin-bottom:0;background:rgba(139,111,71,.1);padding:4px;border-radius:99px;width:fit-content}
+.gal-tab{padding:8px 20px;border-radius:99px;font-size:.8rem;font-weight:500;cursor:pointer;transition:var(--transition);border:none;background:transparent;color:var(--text-muted)}
+.gal-tab.active{background:#fff;color:var(--charcoal);box-shadow:var(--shadow-sm)}
+
+/* ─── LIGHTBOX ─── */
+.lightbox{display:none;position:fixed;inset:0;z-index:1000;background:rgba(28,26,23,.95);align-items:center;justify-content:center;padding:20px}
+.lightbox.open{display:flex}
+.lightbox-img{max-width:90vw;max-height:85vh;border-radius:var(--radius);object-fit:contain}
+.lightbox-close{position:absolute;top:24px;right:28px;background:rgba(255,255,255,.1);border:none;color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.2rem;display:flex;align-items:center;justify-content:center;transition:var(--transition)}
+.lightbox-close:hover{background:rgba(255,255,255,.2)}
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.1);border:none;color:#fff;width:48px;height:48px;border-radius:50%;cursor:pointer;font-size:1.3rem;display:flex;align-items:center;justify-content:center;transition:var(--transition)}
+.lightbox-nav:hover{background:rgba(255,255,255,.2)}
+.lightbox-prev{left:20px}
+.lightbox-next{right:20px}
+.lightbox-caption{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
+
+/* ─── AMENITIES ─── */
+.amenities{padding:100px 0}
+.amenities-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:48px}
+.amenity-card{padding:28px 24px;background:var(--cream);border-radius:var(--radius);border:1px solid var(--border);transition:var(--transition)}
+.amenity-card:hover{border-color:var(--earth);background:#fff;box-shadow:var(--shadow-sm)}
+.amenity-icon{font-size:1.6rem;margin-bottom:14px}
+.amenity-name{font-weight:500;font-size:.9rem;margin-bottom:4px}
+.amenity-desc{font-size:.8rem;color:var(--text-muted)}
+
+/* ─── PRICING ─── */
+.pricing{padding:100px 0;background:var(--charcoal)}
+.pricing .section-tag{color:var(--earth-light)}
+.pricing h2{color:#fff}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;margin-top:48px}
+.pricing-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-lg);padding:32px;transition:var(--transition);cursor:pointer}
+.pricing-card:hover,.pricing-card.featured{background:rgba(196,168,130,.12);border-color:rgba(196,168,130,.3)}
+.pricing-card.featured{position:relative}
+.pricing-card.featured::before{content:'Most popular';position:absolute;top:-1px;left:50%;transform:translateX(-50%);background:var(--earth);color:#fff;padding:5px 18px;border-radius:0 0 10px 10px;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.pricing-type{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--earth-light);margin-bottom:12px}
+.pricing-name{font-family:var(--font-display);font-size:1.4rem;color:#fff;margin-bottom:4px}
+.pricing-property{font-size:.8rem;color:rgba(255,255,255,.4);margin-bottom:24px}
+.pricing-amount{font-family:var(--font-display);font-size:3rem;font-weight:300;color:#fff;line-height:1}
+.pricing-amount sup{font-size:1.2rem;vertical-align:top;margin-top:.5rem;color:var(--earth-light)}
+.pricing-period{font-size:.8rem;color:rgba(255,255,255,.5);margin-top:4px;margin-bottom:28px}
+.pricing-features{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.pricing-features li{font-size:.82rem;color:rgba(255,255,255,.65);display:flex;align-items:center;gap:8px}
+.pricing-features li::before{content:'–';color:var(--earth-light)}
+.pricing-card .btn{width:100%;justify-content:center}
+
+/* ─── LOCATION ─── */
+.location{padding:100px 0}
+.location-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start}
+.map-placeholder{background:var(--cream);border-radius:var(--radius-lg);height:420px;border:1px solid var(--border);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}
+.map-bg{position:absolute;inset:0;background:url('https://nyathirahomes.com/assets/images/DSC_0617.webp') center/cover;opacity:.3}
+.map-pin{position:relative;z-index:2;text-align:center}
+.map-pin-icon{font-size:2.5rem;display:block;margin-bottom:8px}
+.map-pin p{font-weight:500;color:var(--charcoal)}
+.map-pin span{font-size:.8rem;color:var(--text-muted)}
+.nearby-list{list-style:none;display:flex;flex-direction:column;gap:0}
+.nearby-item{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)}
+.nearby-item:last-child{border-bottom:none}
+.nearby-name{font-size:.9rem;font-weight:500}
+.nearby-dist{font-size:.82rem;color:var(--text-muted);background:var(--cream);padding:3px 10px;border-radius:99px}
+
+/* ─── TESTIMONIALS ─── */
+.testimonials{padding:100px 0;background:var(--cream)}
+.testimonials-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px}
+.testimonial-card{background:#fff;border-radius:var(--radius-lg);padding:32px;border:1px solid var(--border)}
+.testimonial-stars{color:var(--gold);font-size:.9rem;margin-bottom:16px;letter-spacing:2px}
+.testimonial-text{font-size:.9rem;color:var(--text-muted);line-height:1.8;margin-bottom:24px;font-style:italic}
+.testimonial-author{display:flex;align-items:center;gap:12px}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--earth);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);color:#fff;font-size:1rem;flex-shrink:0}
+.author-name{font-size:.9rem;font-weight:500}
+.author-detail{font-size:.75rem;color:var(--text-muted)}
+
+/* ─── CONTACT ─── */
+.contact{padding:100px 0}
+.contact-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:64px;align-items:start}
+.contact-info{display:flex;flex-direction:column;gap:28px}
+.contact-item{display:flex;gap:16px;align-items:flex-start}
+.contact-icon{width:44px;height:44px;background:var(--cream);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;border:1px solid var(--border)}
+.contact-label{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:4px}
+.contact-val{font-size:.95rem;font-weight:500;color:var(--charcoal)}
+.contact-sub{font-size:.8rem;color:var(--text-muted)}
+.wa-btn{display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;padding:11px 22px;border-radius:99px;font-size:.85rem;font-weight:500;text-decoration:none;transition:var(--transition);margin-top:8px}
+.wa-btn:hover{background:#1EB85A;transform:translateY(-1px)}
+
+/* ─── CONTACT FORM ─── */
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:.78rem;font-weight:500;letter-spacing:.05em;color:var(--text-muted);margin-bottom:7px;text-transform:uppercase}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:13px 16px;border:1px solid var(--border-strong);border-radius:var(--radius);font-family:var(--font-body);font-size:.9rem;color:var(--charcoal);background:#fff;transition:var(--transition);outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--earth);box-shadow:0 0 0 3px rgba(139,111,71,.1)}
+.form-group textarea{resize:vertical;min-height:100px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* ─── FOOTER ─── */
+footer{background:var(--charcoal);padding:60px 0 32px}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px}
+.footer-logo{font-family:var(--font-display);font-size:1.8rem;font-weight:400;color:#fff;margin-bottom:12px}
+.footer-logo span{color:var(--earth-light);font-style:italic}
+.footer-desc{font-size:.85rem;color:rgba(255,255,255,.45);line-height:1.8;max-width:280px}
+.footer-title{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--earth-light);margin-bottom:20px;font-weight:500}
+.footer-links{list-style:none;display:flex;flex-direction:column;gap:12px}
+.footer-links a{text-decoration:none;color:rgba(255,255,255,.55);font-size:.85rem;transition:color .2s}
+.footer-links a:hover{color:#fff}
+.footer-bottom{border-top:1px solid rgba(255,255,255,.08);padding-top:28px;display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:.78rem;color:rgba(255,255,255,.3)}
+.footer-socials{display:flex;gap:12px}
+.social-btn{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);font-size:.85rem;transition:var(--transition);cursor:pointer;text-decoration:none}
+.social-btn:hover{border-color:var(--earth-light);color:var(--earth-light)}
+
+/* ─── MODAL SYSTEM ─── */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(28,26,23,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-header{padding:28px 28px 0;display:flex;align-items:flex-start;justify-content:space-between}
+.modal-title{font-family:var(--font-display);font-size:1.6rem;font-weight:400}
+.modal-subtitle{font-size:.85rem;color:var(--text-muted);margin-top:4px}
+.modal-close{background:none;border:none;cursor:pointer;width:36px;height:36px;border-radius:50%;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:1rem;color:var(--text-muted);transition:var(--transition);flex-shrink:0}
+.modal-close:hover{background:var(--border);color:var(--charcoal)}
+.modal-body{padding:24px 28px 28px}
+
+/* ─── BOOKING FLOW ─── */
+.booking-steps{display:flex;gap:0;margin-bottom:28px}
+.booking-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative}
+.booking-step::after{content:'';position:absolute;top:15px;left:50%;right:-50%;height:1px;background:var(--border);z-index:0}
+.booking-step:last-child::after{display:none}
+.step-num{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:500;color:var(--text-muted);background:#fff;position:relative;z-index:1;transition:var(--transition)}
+.booking-step.active .step-num{background:var(--earth);border-color:var(--earth);color:#fff}
+.booking-step.done .step-num{background:var(--sage);border-color:var(--sage);color:#fff}
+.step-label{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light)}
+.booking-step.active .step-label{color:var(--earth);font-weight:500}
+
+.booking-page{display:none}
+.booking-page.active{display:block}
+
+.unit-select-card{border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:var(--transition);margin-bottom:12px;display:flex;align-items:center;gap:16px}
+.unit-select-card:hover{border-color:var(--earth);background:rgba(139,111,71,.03)}
+.unit-select-card.selected{border-color:var(--earth);background:rgba(139,111,71,.06)}
+.unit-select-card.selected .unit-radio{background:var(--earth);border-color:var(--earth)}
+.unit-select-card.selected .unit-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+.unit-radio{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border-strong);flex-shrink:0;position:relative;transition:var(--transition)}
+.unit-img-sm{width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0}
+.unit-info .unit-name{font-size:.9rem;font-weight:500;margin-bottom:2px}
+.unit-info .unit-specs{font-size:.78rem;color:var(--text-muted)}
+.unit-price-sm{margin-left:auto;text-align:right;font-size:.82rem;color:var(--text-muted)}
+.unit-price-sm strong{display:block;font-family:var(--font-display);font-size:1.3rem;color:var(--earth);font-weight:400}
+
+.date-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.guests-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--cream);border-radius:var(--radius);margin-bottom:16px}
+.counter{display:flex;align-items:center;gap:12px}
+.counter-btn{width:30px;height:30px;border-radius:50%;border:1px solid var(--border-strong);background:#fff;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:var(--transition);color:var(--charcoal)}
+.counter-btn:hover{border-color:var(--earth);color:var(--earth)}
+.counter-val{font-weight:500;min-width:24px;text-align:center}
+
+.booking-summary{background:var(--cream);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:.87rem}
+.summary-row:not(:last-child){border-bottom:1px solid var(--border)}
+.summary-row.total{font-weight:500;font-size:.95rem;padding-top:12px}
+.summary-label{color:var(--text-muted)}
+.summary-val{font-weight:500;color:var(--charcoal)}
+.summary-val.highlight{color:var(--earth);font-family:var(--font-display);font-size:1.1rem}
+
+/* ─── MPESA ─── */
+.mpesa-header{display:flex;align-items:center;gap:12px;background:#006631;border-radius:var(--radius);padding:16px;margin-bottom:20px;color:#fff}
+.mpesa-logo{font-weight:700;font-size:1.1rem;letter-spacing:.05em}
+.mpesa-logo span{color:#00C853}
+.mpesa-tagline{font-size:.75rem;opacity:.7}
+.mpesa-phone-input{display:flex;align-items:center;gap:0;border:1.5px solid var(--border-strong);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+.mpesa-prefix{padding:13px 14px;background:var(--cream);font-size:.9rem;color:var(--text-muted);font-weight:500;border-right:1px solid var(--border-strong);white-space:nowrap}
+.mpesa-phone-input input{flex:1;padding:13px 14px;border:none;outline:none;font-family:var(--font-body);font-size:.9rem;background:#fff}
+.mpesa-amount-box{border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;justify-content:space-between;align-items:center;background:var(--cream);margin-bottom:20px}
+.mpesa-amt-label{font-size:.8rem;color:var(--text-muted)}
+.mpesa-amt-val{font-family:var(--font-display);font-size:1.8rem;font-weight:400;color:var(--earth)}
+
+/* STK Push screen */
+.stk-screen{text-align:center;padding:20px 0}
+.stk-phone-icon{width:72px;height:72px;border-radius:50%;background:var(--cream);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 20px}
+.stk-title{font-family:var(--font-display);font-size:1.6rem;margin-bottom:8px}
+.stk-desc{font-size:.87rem;color:var(--text-muted);line-height:1.7;margin-bottom:28px}
+.stk-countdown{font-size:2.5rem;font-family:var(--font-display);color:var(--earth);margin:16px 0}
+.stk-pin-visual{display:flex;gap:10px;justify-content:center;margin:20px 0}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:var(--cream);border:2px solid var(--border-strong);transition:var(--transition)}
+.pin-dot.filled{background:var(--earth);border-color:var(--earth)}
+.stk-progress{height:3px;background:var(--cream);border-radius:99px;overflow:hidden;margin:24px 0}
+.stk-progress-fill{height:100%;background:linear-gradient(90deg,var(--earth),var(--gold));border-radius:99px;width:0;transition:width 1s linear}
+
+/* Success screen */
+.success-screen{text-align:center;padding:16px 0}
+.success-icon{width:72px;height:72px;border-radius:50%;background:#E8F5E9;border:2px solid var(--sage);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 20px}
+.booking-ref{background:var(--cream);border-radius:var(--radius);padding:16px;margin:20px 0;font-family:monospace;letter-spacing:.1em;font-size:1rem;color:var(--earth);text-align:center;border:1px dashed var(--earth-light)}
+
+/* Error state */
+.error-msg{background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px 14px;font-size:.82rem;color:#991B1B;margin-bottom:16px;display:none}
+.error-msg.show{display:block}
+
+/* ─── NOTIFICATIONS ─── */
+.toast{position:fixed;bottom:28px;right:28px;background:var(--charcoal);color:#fff;padding:14px 20px;border-radius:var(--radius);font-size:.87rem;box-shadow:var(--shadow-lg);transform:translateY(80px);opacity:0;transition:all .4s cubic-bezier(.4,0,.2,1);z-index:1000;max-width:340px;display:flex;align-items:center;gap:10px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-icon{font-size:1rem}
+
+/* ─── SCROLL ANIMATIONS ─── */
+.reveal{opacity:0;transform:translateY(32px);transition:opacity .7s cubic-bezier(.4,0,.2,1),transform .7s cubic-bezier(.4,0,.2,1)}
+.reveal.visible{opacity:1;transform:none}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:900px){
+  .grid-2,.grid-3,.amenities-grid,.testimonials-grid,.footer-grid{grid-template-columns:1fr}
+  .prop-hero{grid-template-columns:1fr}
+  .location-grid,.contact-grid{grid-template-columns:1fr}
+  .gallery-masonry{columns:2}
+  .pricing-grid{grid-template-columns:1fr 1fr}
+  .nav-links{display:none}
+  .hamburger{display:flex}
+  .hero-stats{gap:28px}
+  .hero-stat-val{font-size:1.6rem}
+}
+@media(max-width:600px){
+  .listings-grid{grid-template-columns:1fr}
+  .gallery-masonry{columns:1}
+  .pricing-grid{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+  .hero-actions{flex-direction:column;align-items:flex-start}
+  .hero-stats{flex-wrap:wrap;gap:20px}
+  .date-grid{grid-template-columns:1fr}
+}
+
+/* scroll track */
+.progress-bar{position:fixed;top:0;left:0;height:2px;background:var(--earth);z-index:200;width:0;transition:width .1s}
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- NAVIGATION -->
+<nav id="mainNav">
+  <div class="nav-inner">
+    <a href="#" class="logo">Nyathira<span>Homes</span></a>
+    <ul class="nav-links">
+      <li><a href="#properties">Properties</a></li>
+      <li><a href="#gallery">Gallery</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#location">Location</a></li>
+      <li><a href="#contact">Contact</a></li>
+      <li><a href="#" class="nav-cta" onclick="openBookingModal(null,'nyathira');return false">Book Now</a></li>
+    </ul>
+    <div class="hamburger" onclick="toggleMobileNav()">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</nav>
+<div class="mobile-nav" id="mobileNav">
+  <a href="#properties" onclick="closeMobileNav()">Properties</a>
+  <a href="#gallery" onclick="closeMobileNav()">Gallery</a>
+  <a href="#pricing" onclick="closeMobileNav()">Pricing</a>
+  <a href="#location" onclick="closeMobileNav()">Location</a>
+  <a href="#contact" onclick="closeMobileNav()">Contact</a>
+  <a href="#" onclick="openBookingModal(null,'nyathira');closeMobileNav();return false" style="color:var(--earth);margin-top:16px">Book Now →</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="container">
+    <div class="hero-content">
+      <div class=""></div>
+      <h1>Your home<br>away from <em>home</em></h1>
+      <p class="hero-sub">Modern apartments and B&Bs in the heart of Thika — affordable, comfortable, and well-connected.</p>
+      <div class="hero-actions">
+        <a href="#properties" class="btn btn-primary">View Properties</a>
+        <a href="#" class="btn btn-outline" onclick="openBookingModal(null,'nyathira');return false">Book a Stay</a>
+      </div>
+      <div class="hero-stats">
+        <div>
+          <div class="hero-stat-val">2</div>
+          <div class="hero-stat-label">Properties</div>
+        </div>
+        <div>
+          <div class="hero-stat-val">8+</div>
+          <div class="hero-stat-label">Unit types</div>
+        </div>
+        <div>
+          <div class="hero-stat-val">Ksh 2k</div>
+          <div class="hero-stat-label">From per night</div>
+        </div>
+        <div>
+          <div class="hero-stat-val">24/7</div>
+          <div class="hero-stat-label">Security</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROPERTIES -->
+<section class="properties" id="properties">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">Our Properties</span>
+      <h2>Two great locations<br>in Thika</h2>
+      <div class="section-divider"></div>
+      <p>Each property is carefully maintained with fully-furnished units, reliable Wi-Fi, and attentive management — ideal for short and long stays alike.</p>
+    </div>
+
+    <div class="property-tabs reveal">
+      <button class="prop-tab active" onclick="switchProp('nyathira',this)">Nyathira Square</button>
+      <button class="prop-tab" onclick="switchProp('kibabu',this)">Kibabu Square</button>
+    </div>
+
+    <!-- NYATHIRA PANEL -->
+    <div class="property-panel active" id="panel-nyathira">
+      <div class="prop-hero reveal">
+        <div>
+          <span class="section-tag">Nyathira Square</span>
+          <h3 style="margin-bottom:12px">Cozy escape along the tarmac, Ngoigwa</h3>
+          <p style="color:var(--text-muted);font-size:.92rem;margin-bottom:16px">Spacious B&B and rental apartments set right on the main road in Ngoigwa — easy access, CCTV security, free daily breakfast for B&B guests, and beautiful balcony views.</p>
+          <ul class="prop-features">
+            <li>Free daily breakfast (B&B)</li>
+            <li>Fully equipped kitchen</li>
+            <li>Fast Wi-Fi & Smart TV</li>
+            <li>CCTV + secure parking</li>
+            <li>Balcony with garden view</li>
+            <li>Microwave, cooker & fridge</li>
+          </ul>
+          <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+            <a href="https://www.google.com/maps/place/NYATHIRA+SQUARE+APARTMENT/@-1.0381416,37.0300593" target="_blank" class="btn btn-outline btn-sm" style="color:var(--charcoal);border-color:var(--border-strong)">📍 View on Maps</a>
+            <a href="tel:+254724211871" class="btn btn-sm" style="background:var(--cream);color:var(--charcoal);border:1px solid var(--border-strong)">📞 Call Irene</a>
+          </div>
+        </div>
+        <div class="prop-hero-img">
+          <img src="https://nyathirahomes.com/assets/images/DSC_0544.webp" alt="Nyathira Square living room"/>
+        </div>
+      </div>
+
+      <div class="listings-grid">
+        <div class="listing-card reveal" onclick="openBookingModal('bnb1b-nyathira','nyathira')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/bnbsit.jpg" alt="1-Bed Airbnb Nyathira"/>
+            <span class="listing-badge badge-airbnb">Airbnb</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 2,000 <span>/ night</span></div>
+            <div class="listing-title">1-Bedroom B&B Suite</div>
+            <div class="listing-location">📍 Nyathira Square, Ngoigwa</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> 1 bed</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 1 bath</div>
+              <div class="spec-item"><span class="spec-icon">👥</span> 1–4 guests</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openBookingModal('bnb1b-nyathira','nyathira')">Book Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openRentModal('bnb1b-nyathira','nyathira')">Enquire</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="listing-card reveal reveal-delay-1" onclick="openBookingModal('bnb2b-nyathira','nyathira')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/DSC_0544.webp" alt="2-Bed Airbnb Nyathira"/>
+            <span class="listing-badge badge-airbnb">Airbnb</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 3,000 <span>/ night</span></div>
+            <div class="listing-title">2-Bedroom B&B Suite</div>
+            <div class="listing-location">📍 Nyathira Square, Ngoigwa</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> 2 beds</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 1 bath</div>
+              <div class="spec-item"><span class="spec-icon">👥</span> 1–4 guests</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openBookingModal('bnb2b-nyathira','nyathira')">Book Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openRentModal('bnb2b-nyathira','nyathira')">Enquire</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="listing-card reveal reveal-delay-2" onclick="openRentModal('bedsit-nyathira','nyathira')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/DSC_0595.webp" alt="Bedsitter Nyathira"/>
+            <span class="listing-badge badge-rent">For Rent</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 6,500 <span>/ month</span></div>
+            <div class="listing-title">Bedsitter Apartment</div>
+            <div class="listing-location">📍 Nyathira Square, Ngoigwa</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> Studio</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 1 bath</div>
+              <div class="spec-item"><span class="spec-icon">🍳</span> Kitchen</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-rust btn-sm" onclick="event.stopPropagation();openRentModal('bedsit-nyathira','nyathira')">Rent Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('nyathira')">WhatsApp</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="listing-card reveal" onclick="openRentModal('1bed-nyathira','nyathira')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/DSC_0665.webp" alt="1-Bed Nyathira"/>
+            <span class="listing-badge badge-rent">For Rent</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 12,000 <span>/ month</span></div>
+            <div class="listing-title">1-Bedroom Apartment</div>
+            <div class="listing-location">📍 Nyathira Square, Ngoigwa</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> 1 bed</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 1 bath</div>
+              <div class="spec-item"><span class="spec-icon">🍳</span> Kitchen</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-rust btn-sm" onclick="event.stopPropagation();openRentModal('1bed-nyathira','nyathira')">Rent Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('nyathira')">WhatsApp</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="listing-card reveal reveal-delay-1" onclick="openRentModal('2bed-nyathira','nyathira')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/DSC_0593.webp" alt="2-Bed Nyathira"/>
+            <span class="listing-badge badge-rent">For Rent</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 13,500 <span>/ month</span></div>
+            <div class="listing-title">2-Bedroom Apartment</div>
+            <div class="listing-location">📍 Nyathira Square, Ngoigwa</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> 2 beds</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 2 baths</div>
+              <div class="spec-item"><span class="spec-icon">🍳</span> Kitchen</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-rust btn-sm" onclick="event.stopPropagation();openRentModal('2bed-nyathira','nyathira')">Rent Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('nyathira')">WhatsApp</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KIBABU PANEL -->
+    <div class="property-panel" id="panel-kibabu">
+      <div class="prop-hero reveal">
+        <div>
+          <span class="section-tag">Kibabu Square</span>
+          <h3 style="margin-bottom:12px">Comfortable & convenient, central Thika</h3>
+          <p style="color:var(--text-muted);font-size:.92rem;margin-bottom:16px">2 km from Ananas Mall, 1.6 km from MKU. Peaceful environment, high cleanliness standards, 24/7 security and parking available for all tenants and guests.</p>
+          <ul class="prop-features">
+            <li>24/7 security on-site</li>
+            <li>Ample parking</li>
+            <li>High cleanliness standards</li>
+            <li>Quiet, peaceful setting</li>
+            <li>Near Ananas Mall (2 km)</li>
+            <li>Near MKU campus (1.6 km)</li>
+          </ul>
+          <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+            <a href="https://www.google.com/maps/place/Kibabu+Square/@-1.062158,37.1214928" target="_blank" class="btn btn-outline btn-sm" style="color:var(--charcoal);border-color:var(--border-strong)">📍 View on Maps</a>
+            <a href="tel:+254724101548" class="btn btn-sm" style="background:var(--cream);color:var(--charcoal);border:1px solid var(--border-strong)">📞 Call Susan</a>
+          </div>
+        </div>
+        <div class="prop-hero-img">
+          <img src="https://nyathirahomes.com/assets/images/DSC_0617.webp" alt="Kibabu Square"/>
+        </div>
+      </div>
+
+      <div class="listings-grid">
+        <div class="listing-card reveal" onclick="openBookingModal('bnb2b-kibabu','kibabu')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/DSC_0622.webp" alt="2-Bed Airbnb Kibabu"/>
+            <span class="listing-badge badge-airbnb">Airbnb</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 3,000 <span>/ night</span></div>
+            <div class="listing-title">2-Bedroom B&B Suite</div>
+            <div class="listing-location">📍 Kibabu Square, Thika</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> 2 beds</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 1 bath</div>
+              <div class="spec-item"><span class="spec-icon">👥</span> 1–4 guests</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openBookingModal('bnb2b-kibabu','kibabu')">Book Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('kibabu')">WhatsApp</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="listing-card reveal reveal-delay-1" onclick="openRentModal('bedsit-kibabu','kibabu')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/DSC_0700.webp" alt="Bedsitter Kibabu"/>
+            <span class="listing-badge badge-rent">For Rent</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 6,500 <span>/ month</span></div>
+            <div class="listing-title">Bedsitter Apartment</div>
+            <div class="listing-location">📍 Kibabu Square, Thika</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> Studio</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 1 bath</div>
+              <div class="spec-item"><span class="spec-icon">🍳</span> Kitchen</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-rust btn-sm" onclick="event.stopPropagation();openRentModal('bedsit-kibabu','kibabu')">Rent Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('kibabu')">WhatsApp</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="listing-card reveal reveal-delay-2" onclick="openRentModal('1bed-kibabu','kibabu')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/DSC_0654.webp" alt="1-Bed Kibabu"/>
+            <span class="listing-badge badge-rent">For Rent</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 12,000 <span>/ month</span></div>
+            <div class="listing-title">1-Bedroom Apartment</div>
+            <div class="listing-location">📍 Kibabu Square, Thika</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> 1 bed</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 1 bath</div>
+              <div class="spec-item"><span class="spec-icon">🍳</span> Kitchen</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-rust btn-sm" onclick="event.stopPropagation();openRentModal('1bed-kibabu','kibabu')">Rent Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('kibabu')">WhatsApp</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="listing-card reveal" onclick="openRentModal('2bed-kibabu','kibabu')">
+          <div class="listing-img-wrap">
+            <img src="https://nyathirahomes.com/assets/images/DSC_0647.webp" alt="2-Bed Kibabu"/>
+            <span class="listing-badge badge-rent">For Rent</span>
+            <span class="badge-available">Available</span>
+          </div>
+          <div class="listing-body">
+            <div class="listing-price">Ksh 13,500 <span>/ month</span></div>
+            <div class="listing-title">2-Bedroom Apartment</div>
+            <div class="listing-location">📍 Kibabu Square, Thika</div>
+            <div class="listing-specs">
+              <div class="spec-item"><span class="spec-icon">🛏</span> 2 beds</div>
+              <div class="spec-item"><span class="spec-icon">🚿</span> 2 baths</div>
+              <div class="spec-item"><span class="spec-icon">🍳</span> Kitchen</div>
+            </div>
+            <div class="listing-actions">
+              <button class="btn btn-rust btn-sm" onclick="event.stopPropagation();openRentModal('2bed-kibabu','kibabu')">Rent Now</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('kibabu')">WhatsApp</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section class="gallery" id="gallery">
+  <div class="container">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:20px;margin-bottom:48px" class="reveal">
+      <div class="section-header" style="margin-bottom:0">
+        <span class="section-tag">Photo Gallery</span>
+        <h2>See it for yourself</h2>
+        <div class="section-divider"></div>
+      </div>
+      <div class="gallery-tabs">
+        <button class="gal-tab active" onclick="filterGallery('all',this)">All</button>
+        <button class="gal-tab" onclick="filterGallery('nyathira',this)">Nyathira</button>
+        <button class="gal-tab" onclick="filterGallery('kibabu',this)">Kibabu</button>
+        <button class="gal-tab" onclick="filterGallery('airbnb',this)">B&B</button>
+      </div>
+    </div>
+    <div class="gallery-masonry" id="galleryGrid">
+      <div class="gallery-item reveal" data-cat="nyathira airbnb" onclick="openLightbox(0)"><img src="https://nyathirahomes.com/assets/images/DSC_0544.webp" alt="Nyathira living room"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal reveal-delay-1" data-cat="nyathira airbnb" onclick="openLightbox(1)"><img src="https://nyathirahomes.com/assets/images/bnbsit.jpg" alt="Nyathira B&B living room"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal reveal-delay-2" data-cat="kibabu airbnb" onclick="openLightbox(2)"><img src="https://nyathirahomes.com/assets/images/DSC_0622.webp" alt="Kibabu B&B living room"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal" data-cat="nyathira" onclick="openLightbox(3)"><img src="https://nyathirahomes.com/assets/images/DSC_0558.webp" alt="Nyathira bedroom"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal reveal-delay-1" data-cat="kibabu" onclick="openLightbox(4)"><img src="https://nyathirahomes.com/assets/images/DSC_0625.webp" alt="Kibabu bedroom"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal reveal-delay-2" data-cat="nyathira" onclick="openLightbox(5)"><img src="https://nyathirahomes.com/assets/images/bnbkitchen.jpg" alt="B&B kitchen"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal" data-cat="kibabu" onclick="openLightbox(6)"><img src="https://nyathirahomes.com/assets/images/DSC_0633.webp" alt="Kibabu kitchen"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal reveal-delay-1" data-cat="nyathira" onclick="openLightbox(7)"><img src="https://nyathirahomes.com/assets/images/DSC_0590.webp" alt="Nyathira balcony"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal reveal-delay-2" data-cat="kibabu" onclick="openLightbox(8)"><img src="https://nyathirahomes.com/assets/images/DSC_0648.webp" alt="Kibabu bathroom"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal" data-cat="nyathira airbnb" onclick="openLightbox(9)"><img src="https://nyathirahomes.com/assets/images/DSC_0560.webp" alt="Nyathira B&B bedroom"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal reveal-delay-1" data-cat="kibabu" onclick="openLightbox(10)"><img src="https://nyathirahomes.com/assets/images/DSC_0663.webp" alt="Kibabu rental living"/><div class="gallery-item-overlay"></div></div>
+      <div class="gallery-item reveal reveal-delay-2" data-cat="nyathira" onclick="openLightbox(11)"><img src="https://nyathirahomes.com/assets/images/DSC_0597.webp" alt="Nyathira rental bedroom"/><div class="gallery-item-overlay"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button class="lightbox-nav lightbox-prev" onclick="navLightbox(-1)">‹</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
+  <button class="lightbox-nav lightbox-next" onclick="navLightbox(1)">›</button>
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
+
+<!-- AMENITIES -->
+<section class="amenities">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">Amenities</span>
+      <h2>Everything you need</h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="amenities-grid">
+      <div class="amenity-card reveal"><div class="amenity-icon">🍳</div><div class="amenity-name">Full Kitchen</div><div class="amenity-desc">Microwave, cooker, fridge & all utensils included</div></div>
+      <div class="amenity-card reveal reveal-delay-1"><div class="amenity-icon">📶</div><div class="amenity-name">Fast Wi-Fi</div><div class="amenity-desc">High-speed, reliable broadband in all units</div></div>
+      <div class="amenity-card reveal reveal-delay-2"><div class="amenity-icon">📺</div><div class="amenity-name">Smart TV</div><div class="amenity-desc">Entertainment in every B&B unit</div></div>
+      <div class="amenity-card reveal reveal-delay-3"><div class="amenity-icon">🔒</div><div class="amenity-name">24/7 Security</div><div class="amenity-desc">CCTV surveillance and on-site guards</div></div>
+      <div class="amenity-card reveal"><div class="amenity-icon">🚗</div><div class="amenity-name">Free Parking</div><div class="amenity-desc">Ample secure parking for all guests</div></div>
+      <div class="amenity-card reveal reveal-delay-1"><div class="amenity-icon">☀️</div><div class="amenity-name">Balcony Views</div><div class="amenity-desc">Fresh outdoor breeze and garden views (Nyathira)</div></div>
+      <div class="amenity-card reveal reveal-delay-2"><div class="amenity-icon">🍳</div><div class="amenity-name">Breakfast Included</div><div class="amenity-desc">Free daily breakfast for all B&B stays</div></div>
+      <div class="amenity-card reveal reveal-delay-3"><div class="amenity-icon">🧹</div><div class="amenity-name">Housekeeping</div><div class="amenity-desc">Regular cleaning to the highest standards</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">Transparent Pricing</span>
+      <h2 style="color:#fff">Simple, honest rates</h2>
+      <div class="section-divider" style="background:var(--earth-light)"></div>
+      <p style="color:rgba(255,255,255,.55)">All prices include utilities. Rentals require one month deposit + Ksh 2,500 water deposit. Extra guests on B&B: +Ksh 800/person above 4.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card reveal" onclick="openBookingModal('bnb1b-nyathira','nyathira')">
+        <div class="pricing-type">Airbnb · Nyathira</div>
+        <div class="pricing-name">1-Bed Suite</div>
+        <div class="pricing-property">Nyathira Square</div>
+        <div class="pricing-amount"><sup>Ksh</sup>2,000</div>
+        <div class="pricing-period">per night</div>
+        <ul class="pricing-features"><li>1 bedroom, 1 bathroom</li><li>Up to 4 guests</li><li>Free daily breakfast</li><li>Wi-Fi + Smart TV</li></ul>
+        <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.25);width:100%;justify-content:center">Book this unit</button>
+      </div>
+      <div class="pricing-card featured reveal reveal-delay-1" onclick="openBookingModal('bnb2b-nyathira','nyathira')">
+        <div class="pricing-type">Airbnb · Nyathira</div>
+        <div class="pricing-name">2-Bed Suite</div>
+        <div class="pricing-property">Nyathira Square</div>
+        <div class="pricing-amount"><sup>Ksh</sup>3,000</div>
+        <div class="pricing-period">per night</div>
+        <ul class="pricing-features"><li>2 bedrooms, 1 bathroom</li><li>Up to 4 guests (+800 extra)</li><li>Free daily breakfast</li><li>Balcony views</li></ul>
+        <button class="btn btn-primary" style="width:100%;justify-content:center">Book this unit</button>
+      </div>
+      <div class="pricing-card reveal reveal-delay-2" onclick="openBookingModal('bnb2b-kibabu','kibabu')">
+        <div class="pricing-type">Airbnb · Kibabu</div>
+        <div class="pricing-name">2-Bed Suite</div>
+        <div class="pricing-property">Kibabu Square</div>
+        <div class="pricing-amount"><sup>Ksh</sup>3,000</div>
+        <div class="pricing-period">per night</div>
+        <ul class="pricing-features"><li>2 bedrooms, 1 bathroom</li><li>Up to 4 guests (+800 extra)</li><li>24/7 security</li><li>Free parking</li></ul>
+        <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.25);width:100%;justify-content:center">Book this unit</button>
+      </div>
+      <div class="pricing-card reveal" onclick="openRentModal('bedsit-nyathira','nyathira')">
+        <div class="pricing-type">Long-term Rental</div>
+        <div class="pricing-name">Bedsitter</div>
+        <div class="pricing-property">Nyathira or Kibabu Square</div>
+        <div class="pricing-amount"><sup>Ksh</sup>6,500</div>
+        <div class="pricing-period">per month</div>
+        <ul class="pricing-features"><li>Self-contained studio</li><li>1 bathroom + kitchen</li><li>+Ksh 2,500 water deposit</li><li>1 month deposit req.</li></ul>
+        <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.25);width:100%;justify-content:center">Start rental process</button>
+      </div>
+      <div class="pricing-card reveal reveal-delay-1" onclick="openRentModal('1bed-nyathira','nyathira')">
+        <div class="pricing-type">Long-term Rental</div>
+        <div class="pricing-name">1-Bedroom</div>
+        <div class="pricing-property">Nyathira or Kibabu Square</div>
+        <div class="pricing-amount"><sup>Ksh</sup>12,000</div>
+        <div class="pricing-period">per month</div>
+        <ul class="pricing-features"><li>1 bed, 1 bath, kitchen</li><li>+Ksh 2,500 water deposit</li><li>1 month deposit req.</li><li>Utilities included</li></ul>
+        <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.25);width:100%;justify-content:center">Start rental process</button>
+      </div>
+      <div class="pricing-card reveal reveal-delay-2" onclick="openRentModal('2bed-nyathira','nyathira')">
+        <div class="pricing-type">Long-term Rental</div>
+        <div class="pricing-name">2-Bedroom</div>
+        <div class="pricing-property">Nyathira or Kibabu Square</div>
+        <div class="pricing-amount"><sup>Ksh</sup>13,500</div>
+        <div class="pricing-period">per month</div>
+        <ul class="pricing-features"><li>2 beds, 2 baths, kitchen</li><li>+Ksh 2,500 water deposit</li><li>1 month deposit req.</li><li>Spacious layout</li></ul>
+        <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.25);width:100%;justify-content:center">Start rental process</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOCATION -->
+<section class="location" id="location">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">Location</span>
+      <h2>Perfectly located<br>in Thika</h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="location-grid">
+      <div class="reveal">
+        <div style="margin-bottom:32px">
+          <h4 style="margin-bottom:16px;font-family:var(--font-display);font-weight:400;font-size:1.3rem">Nyathira Square</h4>
+          <a href="https://www.google.com/maps/place/NYATHIRA+SQUARE+APARTMENT/@-1.0381416,37.0300593" target="_blank" class="map-placeholder" style="height:200px;margin-bottom:24px;display:flex">
+            <div class="map-bg"></div>
+            <div class="map-pin"><span class="map-pin-icon">📍</span><p>Nyathira Square</p><span>Tap to open in Google Maps</span></div>
+          </a>
+          <h4 style="margin-bottom:16px;font-family:var(--font-display);font-weight:400;font-size:1.3rem">Kibabu Square</h4>
+          <a href="https://www.google.com/maps/place/Kibabu+Square/@-1.062158,37.1214928" target="_blank" class="map-placeholder" style="height:200px;display:flex">
+            <div class="map-bg" style="background-image:url('https://nyathirahomes.com/assets/images/DSC_0617.webp')"></div>
+            <div class="map-pin"><span class="map-pin-icon">📍</span><p>Kibabu Square</p><span>Tap to open in Google Maps</span></div>
+          </a>
+        </div>
+      </div>
+      <div class="reveal reveal-delay-1">
+        <h4 style="margin-bottom:20px;font-family:var(--font-display);font-weight:400;font-size:1.3rem">Nearby from Nyathira Square</h4>
+        <ul class="nearby-list" style="margin-bottom:32px">
+          <li class="nearby-item"><span class="nearby-name">Ol Donyo Sabuk National Park</span><span class="nearby-dist">36 km</span></li>
+          <li class="nearby-item"><span class="nearby-name">Windsor Golf & Country Club</span><span class="nearby-dist">39 km</span></li>
+          <li class="nearby-item"><span class="nearby-name">Karura Forest</span><span class="nearby-dist">42 km</span></li>
+          <li class="nearby-item"><span class="nearby-name">Thika Town Centre</span><span class="nearby-dist">~5 km</span></li>
+        </ul>
+        <h4 style="margin-bottom:20px;font-family:var(--font-display);font-weight:400;font-size:1.3rem">Nearby from Kibabu Square</h4>
+        <ul class="nearby-list">
+          <li class="nearby-item"><span class="nearby-name">Ananas Mall</span><span class="nearby-dist">2 km</span></li>
+          <li class="nearby-item"><span class="nearby-name">MKU Graduation Pavilion</span><span class="nearby-dist">1.6 km</span></li>
+          <li class="nearby-item"><span class="nearby-name">Karura Forest</span><span class="nearby-dist">49 km</span></li>
+          <li class="nearby-item"><span class="nearby-name">JKIA Airport</span><span class="nearby-dist">62 km</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">Guest Reviews</span>
+      <h2>What our guests say</h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card reveal">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"The apartment was spotless and the breakfast every morning was a lovely touch. Felt completely at home. The balcony view in the morning is something else entirely."</p>
+        <div class="testimonial-author"><div class="avatar">WM</div><div><div class="author-name">Wanjiku M.</div><div class="author-detail">Stayed at Nyathira Square · 1-bed B&B</div></div></div>
+      </div>
+      <div class="testimonial-card reveal reveal-delay-1">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"Perfect location for our team offsite. Close to town, quiet, and the Wi-Fi was actually fast. The 2-bed unit fit us comfortably. Would come back without question."</p>
+        <div class="testimonial-author"><div class="avatar">JO</div><div><div class="author-name">James O.</div><div class="author-detail">Stayed at Kibabu Square · 2-bed B&B</div></div></div>
+      </div>
+      <div class="testimonial-card reveal reveal-delay-2">
+        <div class="testimonial-stars">★★★★☆</div>
+        <p class="testimonial-text">"Great value for a long-term rental in Thika. Management is responsive and the place is well-maintained. The deposit process was smooth and transparent."</p>
+        <div class="testimonial-author"><div class="avatar">AN</div><div><div class="author-name">Asha N.</div><div class="author-detail">Long-term tenant · Nyathira Square</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section class="contact" id="contact">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-tag">Get in Touch</span>
+      <h2>We'd love to<br>hear from you</h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-info reveal">
+        <div class="contact-item">
+          <div class="contact-icon">📍</div>
+          <div>
+            <div class="contact-label">Nyathira Square</div>
+            <div class="contact-val">Ngoigwa, Thika, Kiambu</div>
+            <div class="contact-sub">Along the main tarmac road</div>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">📍</div>
+          <div>
+            <div class="contact-label">Kibabu Square</div>
+            <div class="contact-val">Thika, Kiambu County</div>
+            <div class="contact-sub">2 km from Ananas Mall</div>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">📞</div>
+          <div>
+            <div class="contact-label">Nyathira — Irene</div>
+            <div class="contact-val">0724 211 871</div>
+            <a href="https://wa.me/+254724211871?text=Hello%20I%20am%20interested%20in%20Nyathira%20Square." target="_blank" class="wa-btn">
+              <span style="font-size:1.1rem">💬</span> WhatsApp Irene
+            </a>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">📞</div>
+          <div>
+            <div class="contact-label">Kibabu — Susan</div>
+            <div class="contact-val">0724 101 548</div>
+            <a href="https://wa.me/+254724101548?text=Hello%20I%20am%20interested%20in%20Kibabu%20Square." target="_blank" class="wa-btn">
+              <span style="font-size:1.1rem">💬</span> WhatsApp Susan
+            </a>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">✉️</div>
+          <div>
+            <div class="contact-label">Email</div>
+            <div class="contact-val">nyathirahomes@gmail.com</div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal reveal-delay-1">
+        <div style="background:var(--cream);border-radius:var(--radius-lg);padding:36px;border:1px solid var(--border)">
+          <h4 style="font-family:var(--font-display);font-weight:400;font-size:1.4rem;margin-bottom:8px">Send us a message</h4>
+          <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:24px">We'll get back to you within a few hours.</p>
+          <form onsubmit="submitEnquiry(event)">
+            <div class="form-row">
+              <div class="form-group"><label>Name</label><input type="text" placeholder="Your full name" required/></div>
+              <div class="form-group"><label>Phone</label><input type="tel" placeholder="07XX XXX XXX" required/></div>
+            </div>
+            <div class="form-group">
+              <label>Interested in</label>
+              <select required>
+                <option value="">Select a unit type</option>
+                <option>Nyathira Square — 1-Bed Airbnb (Ksh 2,000/night)</option>
+                <option>Nyathira Square — 2-Bed Airbnb (Ksh 3,000/night)</option>
+                <option>Nyathira Square — Bedsitter (Ksh 6,500/month)</option>
+                <option>Nyathira Square — 1-Bedroom (Ksh 12,000/month)</option>
+                <option>Nyathira Square — 2-Bedroom (Ksh 13,500/month)</option>
+                <option>Kibabu Square — 2-Bed Airbnb (Ksh 3,000/night)</option>
+                <option>Kibabu Square — Bedsitter (Ksh 6,500/month)</option>
+                <option>Kibabu Square — 1-Bedroom (Ksh 12,000/month)</option>
+                <option>Kibabu Square — 2-Bedroom (Ksh 13,500/month)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Message</label>
+              <textarea placeholder="Preferred dates, any questions…"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Send Message</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-logo">Nyathira<span>Homes</span></div>
+        <p class="footer-desc">Modern, affordable apartments and B&Bs in Thika, Kiambu. Your comfort is our priority — whether for a night, a weekend, or a year.</p>
+      </div>
+      <div>
+        <div class="footer-title">Properties</div>
+        <ul class="footer-links">
+          <li><a href="#" onclick="switchPropFooter('nyathira')">Nyathira Square</a></li>
+          <li><a href="#" onclick="switchPropFooter('kibabu')">Kibabu Square</a></li>
+          <li><a href="#gallery">Photo Gallery</a></li>
+          <li><a href="#amenities">Amenities</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-title">Book a Stay</div>
+        <ul class="footer-links">
+          <li><a href="#" onclick="openBookingModal('bnb1b-nyathira','nyathira');return false">1-Bed Airbnb</a></li>
+          <li><a href="#" onclick="openBookingModal('bnb2b-nyathira','nyathira');return false">2-Bed Airbnb (Nyathira)</a></li>
+          <li><a href="#" onclick="openBookingModal('bnb2b-kibabu','kibabu');return false">2-Bed Airbnb (Kibabu)</a></li>
+          <li><a href="#pricing">View all pricing</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-title">Contact</div>
+        <ul class="footer-links">
+          <li><a href="tel:+254724211871">Irene: 0724 211 871</a></li>
+          <li><a href="tel:+254724101548">Susan: 0724 101 548</a></li>
+          <li><a href="tel:+254702048039">Main Gate: 0702 048 039</a></li>
+          <li><a href="mailto:nyathirahomes@gmail.com">nyathirahomes@gmail.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2025 Nyathira Homes. Thika, Kiambu County, Kenya.</div>
+      <div class="footer-socials">
+        <a href="https://wa.me/+254724211871" target="_blank" class="social-btn" title="WhatsApp">💬</a>
+        <a href="mailto:nyathirahomes@gmail.com" class="social-btn" title="Email">✉️</a>
+        <a href="https://www.google.com/maps/place/NYATHIRA+SQUARE+APARTMENT/@-1.0381416,37.0300593" target="_blank" class="social-btn" title="Maps">📍</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span class="toast-icon" id="toastIcon">✓</span><span id="toastMsg"></span></div>
+
+<!-- ══════════════════════════════════════════════
+     BOOKING MODAL (B&B / AIRBNB)
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="bookingModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Book Your Stay</div>
+        <div class="modal-subtitle" id="bookingSubtitle">Nyathira Homes — Thika</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('bookingModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Steps -->
+      <div class="booking-steps" id="bookingStepsEl">
+        <div class="booking-step active" id="bstep1"><div class="step-num">1</div><div class="step-label">Unit</div></div>
+        <div class="booking-step" id="bstep2"><div class="step-num">2</div><div class="step-label">Dates</div></div>
+        <div class="booking-step" id="bstep3"><div class="step-num">3</div><div class="step-label">Details</div></div>
+        <div class="booking-step" id="bstep4"><div class="step-num">4</div><div class="step-label">Pay</div></div>
+      </div>
+
+      <!-- Page 1: Unit Selection -->
+      <div class="booking-page active" id="bpage1">
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:16px">Select the unit you'd like to book:</p>
+        <div class="unit-select-card selected" id="ucard-bnb1b" onclick="selectUnit('bnb1b-nyathira')">
+          <div class="unit-radio" id="uradio-bnb1b"></div>
+          <img class="unit-img-sm" src="https://nyathirahomes.com/assets/images/bnbsit.jpg" alt="1-bed"/>
+          <div class="unit-info"><div class="unit-name">1-Bed B&B Suite</div><div class="unit-specs">Nyathira · 1 bed · 1 bath · 1–4 guests</div></div>
+          <div class="unit-price-sm"><strong>Ksh 2,000</strong>/ night</div>
+        </div>
+        <div class="unit-select-card" id="ucard-bnb2b-n" onclick="selectUnit('bnb2b-nyathira')">
+          <div class="unit-radio" id="uradio-bnb2b-n"></div>
+          <img class="unit-img-sm" src="https://nyathirahomes.com/assets/images/DSC_0544.webp" alt="2-bed nyathira"/>
+          <div class="unit-info"><div class="unit-name">2-Bed B&B Suite</div><div class="unit-specs">Nyathira · 2 beds · 1 bath · 1–4 guests</div></div>
+          <div class="unit-price-sm"><strong>Ksh 3,000</strong>/ night</div>
+        </div>
+        <div class="unit-select-card" id="ucard-bnb2b-k" onclick="selectUnit('bnb2b-kibabu')">
+          <div class="unit-radio" id="uradio-bnb2b-k"></div>
+          <img class="unit-img-sm" src="https://nyathirahomes.com/assets/images/DSC_0622.webp" alt="2-bed kibabu"/>
+          <div class="unit-info"><div class="unit-name">2-Bed B&B Suite</div><div class="unit-specs">Kibabu · 2 beds · 1 bath · 1–4 guests</div></div>
+          <div class="unit-price-sm"><strong>Ksh 3,000</strong>/ night</div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center" onclick="goBookingStep(2)">Continue →</button>
+      </div>
+
+      <!-- Page 2: Dates -->
+      <div class="booking-page" id="bpage2">
+        <div class="date-grid">
+          <div class="form-group"><label>Check-in</label><input type="date" id="checkinDate" min="" oninput="updateBookingSummary()"/></div>
+          <div class="form-group"><label>Check-out</label><input type="date" id="checkoutDate" min="" oninput="updateBookingSummary()"/></div>
+        </div>
+        <div class="guests-row">
+          <div>
+            <div style="font-size:.85rem;font-weight:500">Guests</div>
+            <div style="font-size:.78rem;color:var(--text-muted)">+Ksh 800 per extra guest above 4</div>
+          </div>
+          <div class="counter">
+            <button class="counter-btn" onclick="changeGuests(-1)">−</button>
+            <span class="counter-val" id="guestCount">2</span>
+            <button class="counter-btn" onclick="changeGuests(1)">+</button>
+          </div>
+        </div>
+        <div class="booking-summary" id="bookingSummary" style="display:none">
+          <div class="summary-row"><span class="summary-label" id="sumNights">0 nights</span><span class="summary-val" id="sumBase">Ksh 0</span></div>
+          <div class="summary-row" id="sumExtraRow" style="display:none"><span class="summary-label">Extra guests</span><span class="summary-val" id="sumExtra">Ksh 0</span></div>
+          <div class="summary-row total"><span class="summary-label">Total</span><span class="summary-val highlight" id="sumTotal">Ksh 0</span></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="goBookingStep(1)">← Back</button>
+          <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="goBookingStep(3)">Continue →</button>
+        </div>
+      </div>
+
+      <!-- Page 3: Guest Details -->
+      <div class="booking-page" id="bpage3">
+        <div class="form-row">
+          <div class="form-group"><label>Full Name</label><input type="text" id="guestName" placeholder="Your name" required/></div>
+          <div class="form-group"><label>Phone (M-Pesa)</label><input type="tel" id="guestPhone" placeholder="07XX XXX XXX" required/></div>
+        </div>
+        <div class="form-group"><label>Email (optional)</label><input type="email" id="guestEmail" placeholder="you@email.com"/></div>
+        <div class="form-group">
+          <label>Special requests</label>
+          <textarea id="guestNotes" placeholder="Early check-in, extra towels, dietary requirements…" style="min-height:72px"></textarea>
+        </div>
+        <div class="booking-summary">
+          <div class="summary-row"><span class="summary-label" id="sumNights2"></span><span class="summary-val" id="sumBase2"></span></div>
+          <div class="summary-row total"><span class="summary-label">Total to pay</span><span class="summary-val highlight" id="sumTotal2">Ksh 0</span></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="goBookingStep(2)">← Back</button>
+          <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="goBookingStep(4)">Pay with M-Pesa →</button>
+        </div>
+      </div>
+
+      <!-- Page 4: M-Pesa Payment -->
+      <div class="booking-page" id="bpage4" id="mpesaPage">
+        <div class="mpesa-header">
+          <div>
+            <div class="mpesa-logo">M-<span>PESA</span></div>
+            <div class="mpesa-tagline">Safaricom · Secure Mobile Payment</div>
+          </div>
+          <div style="margin-left:auto;text-align:right;font-size:.8rem;opacity:.7">STK Push</div>
+        </div>
+
+        <div id="mpesaForm">
+          <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:16px">We'll send an M-Pesa payment request to your phone. Enter your M-Pesa number to proceed.</p>
+          <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:6px">M-Pesa phone number</div>
+          <div class="mpesa-phone-input">
+            <div class="mpesa-prefix">+254</div>
+            <input type="tel" id="mpesaPhone" placeholder="7XX XXX XXX" maxlength="9" oninput="this.value=this.value.replace(/\D/g,'')"/>
+          </div>
+          <div class="mpesa-amount-box">
+            <div><div class="mpesa-amt-label">Amount due</div><div style="font-size:.78rem;color:var(--text-muted)" id="mpesaAmtDetail">booking deposit</div></div>
+            <div class="mpesa-amt-val" id="mpesaAmtDisplay">Ksh 0</div>
+          </div>
+          <div class="error-msg" id="mpesaError">Please enter a valid Safaricom number (07XX or 01XX format)</div>
+          <div style="display:flex;gap:12px">
+            <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="goBookingStep(3)">← Back</button>
+            <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="initiateStkPush()">Send STK Push →</button>
+          </div>
+        </div>
+
+        <!-- STK Waiting -->
+        <div id="stkWaiting" style="display:none">
+          <div class="stk-screen">
+            <div class="stk-phone-icon">📱</div>
+            <div class="stk-title">Check your phone</div>
+            <div class="stk-desc">An M-Pesa payment prompt has been sent to<br><strong id="stkPhoneDisplay">+254 7XX XXX XXX</strong><br>Enter your M-Pesa PIN to complete the payment.</div>
+            <div class="stk-pin-visual">
+              <div class="pin-dot" id="pin1"></div>
+              <div class="pin-dot" id="pin2"></div>
+              <div class="pin-dot" id="pin3"></div>
+              <div class="pin-dot" id="pin4"></div>
+            </div>
+            <div class="stk-countdown" id="stkCountdown">60</div>
+            <div style="font-size:.78rem;color:var(--text-muted)">seconds remaining</div>
+            <div class="stk-progress"><div class="stk-progress-fill" id="stkProgressFill"></div></div>
+            <div style="display:flex;gap:12px;margin-top:12px;justify-content:center">
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="cancelStk()">Cancel</button>
+              <button class="btn btn-sm btn-outline" style="color:var(--charcoal);border-color:var(--border-strong)" onclick="resendStk()">Resend prompt</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Success -->
+        <div id="stkSuccess" style="display:none">
+          <div class="success-screen">
+            <div class="success-icon">✓</div>
+            <div class="stk-title">Booking Confirmed!</div>
+            <p style="font-size:.87rem;color:var(--text-muted);margin-top:8px">Payment received. Your stay at <strong id="successProp">Nyathira Square</strong> is confirmed.</p>
+            <div class="booking-ref" id="bookingRef">NYH-XXXXXX</div>
+            <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:20px">Screenshot your reference number. A confirmation will be sent via SMS to your M-Pesa number.</p>
+            <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal('bookingModal')">Done — Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     RENT MODAL (Long-term)
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="rentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Start Your Rental</div>
+        <div class="modal-subtitle" id="rentSubtitle">Long-term rental — Nyathira Homes</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('rentModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="booking-steps">
+        <div class="booking-step active" id="rstep1"><div class="step-num">1</div><div class="step-label">Unit</div></div>
+        <div class="booking-step" id="rstep2"><div class="step-num">2</div><div class="step-label">Details</div></div>
+        <div class="booking-step" id="rstep3"><div class="step-num">3</div><div class="step-label">Deposit</div></div>
+      </div>
+
+      <!-- Rent Page 1 -->
+      <div class="booking-page active" id="rpage1">
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:16px">Select the rental unit you're interested in:</p>
+        <div class="unit-select-card selected" id="rucard-bedsit" onclick="selectRentUnit('bedsit')">
+          <div class="unit-radio" id="ruradio-bedsit" style="background:var(--earth);border-color:var(--earth)"></div>
+          <div class="unit-info" style="padding:4px 0"><div class="unit-name">Bedsitter</div><div class="unit-specs">Studio · 1 bath · kitchen</div></div>
+          <div class="unit-price-sm"><strong>Ksh 6,500</strong>/ month</div>
+        </div>
+        <div class="unit-select-card" id="rucard-1bed" onclick="selectRentUnit('1bed')">
+          <div class="unit-radio" id="ruradio-1bed"></div>
+          <div class="unit-info" style="padding:4px 0"><div class="unit-name">1-Bedroom Apartment</div><div class="unit-specs">1 bed · 1 bath · kitchen</div></div>
+          <div class="unit-price-sm"><strong>Ksh 12,000</strong>/ month</div>
+        </div>
+        <div class="unit-select-card" id="rucard-2bed" onclick="selectRentUnit('2bed')">
+          <div class="unit-radio" id="ruradio-2bed"></div>
+          <div class="unit-info" style="padding:4px 0"><div class="unit-name">2-Bedroom Apartment</div><div class="unit-specs">2 beds · 2 baths · kitchen</div></div>
+          <div class="unit-price-sm"><strong>Ksh 13,500</strong>/ month</div>
+        </div>
+        <div class="form-group" style="margin-top:16px">
+          <label>Property</label>
+          <select id="rentPropSelect">
+            <option value="nyathira">Nyathira Square, Ngoigwa</option>
+            <option value="kibabu">Kibabu Square, Thika</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="goRentStep(2)">Continue →</button>
+      </div>
+
+      <!-- Rent Page 2 -->
+      <div class="booking-page" id="rpage2">
+        <div class="form-row">
+          <div class="form-group"><label>Full Name</label><input type="text" id="rentName" placeholder="Your full name"/></div>
+          <div class="form-group"><label>ID Number</label><input type="text" id="rentId" placeholder="National ID no."/></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Phone</label><input type="tel" id="rentPhone" placeholder="07XX XXX XXX"/></div>
+          <div class="form-group"><label>Email</label><input type="email" id="rentEmail" placeholder="you@email.com"/></div>
+        </div>
+        <div class="form-group">
+          <label>Move-in date</label>
+          <input type="date" id="rentMoveIn"/>
+        </div>
+        <div class="form-group">
+          <label>Current residence / notes</label>
+          <textarea id="rentNotes" placeholder="Current address, any questions…" style="min-height:72px"></textarea>
+        </div>
+        <div class="booking-summary">
+          <div class="summary-row"><span class="summary-label">Monthly rent</span><span class="summary-val" id="rentMonthly">Ksh 0</span></div>
+          <div class="summary-row"><span class="summary-label">Rent deposit (1 month)</span><span class="summary-val" id="rentDeposit">Ksh 0</span></div>
+          <div class="summary-row"><span class="summary-label">Water deposit</span><span class="summary-val">Ksh 2,500</span></div>
+          <div class="summary-row total"><span class="summary-label">Move-in total</span><span class="summary-val highlight" id="rentMoveInTotal">Ksh 0</span></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="goRentStep(1)">← Back</button>
+          <button class="btn btn-rust" style="flex:1;justify-content:center" onclick="goRentStep(3)">Pay Deposit via M-Pesa →</button>
+        </div>
+      </div>
+
+      <!-- Rent Page 3 — M-Pesa deposit -->
+      <div class="booking-page" id="rpage3">
+        <div class="mpesa-header">
+          <div>
+            <div class="mpesa-logo">M-<span>PESA</span></div>
+            <div class="mpesa-tagline">Deposit Payment</div>
+          </div>
+        </div>
+
+        <div id="rentMpesaForm">
+          <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:16px">Your total move-in deposit will be charged to your M-Pesa number.</p>
+          <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:6px">M-Pesa phone number</div>
+          <div class="mpesa-phone-input">
+            <div class="mpesa-prefix">+254</div>
+            <input type="tel" id="rentMpesaPhone" placeholder="7XX XXX XXX" maxlength="9" oninput="this.value=this.value.replace(/\D/g,'')"/>
+          </div>
+          <div class="mpesa-amount-box">
+            <div><div class="mpesa-amt-label">Total deposit</div><div style="font-size:.78rem;color:var(--text-muted)">Rent + water deposit</div></div>
+            <div class="mpesa-amt-val" id="rentMpesaAmt">Ksh 0</div>
+          </div>
+          <div class="error-msg" id="rentMpesaError">Please enter a valid Safaricom number</div>
+          <div style="background:var(--cream);border-radius:8px;padding:12px;margin-bottom:16px;font-size:.8rem;color:var(--text-muted);line-height:1.6">
+            💡 After your deposit is received, our team will contact you within 24 hours to arrange a viewing and finalise your tenancy agreement.
+          </div>
+          <div style="display:flex;gap:12px">
+            <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="goRentStep(2)">← Back</button>
+            <button class="btn btn-rust" style="flex:1;justify-content:center" onclick="initiateRentStk()">Send STK Push →</button>
+          </div>
+        </div>
+
+        <div id="rentStkWaiting" style="display:none">
+          <div class="stk-screen">
+            <div class="stk-phone-icon">📱</div>
+            <div class="stk-title">Check your phone</div>
+            <div class="stk-desc">M-Pesa prompt sent to<br><strong id="rentStkPhone">+254 7XX XXX XXX</strong><br>Enter your PIN to pay the deposit.</div>
+            <div class="stk-pin-visual">
+              <div class="pin-dot" id="rpin1"></div><div class="pin-dot" id="rpin2"></div><div class="pin-dot" id="rpin3"></div><div class="pin-dot" id="rpin4"></div>
+            </div>
+            <div class="stk-countdown" id="rentStkCountdown">60</div>
+            <div style="font-size:.78rem;color:var(--text-muted)">seconds remaining</div>
+            <div class="stk-progress"><div class="stk-progress-fill" id="rentStkProgress"></div></div>
+            <div style="margin-top:12px"><button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="cancelRentStk()">Cancel</button></div>
+          </div>
+        </div>
+
+        <div id="rentStkSuccess" style="display:none">
+          <div class="success-screen">
+            <div class="success-icon">✓</div>
+            <div class="stk-title">Deposit Received!</div>
+            <p style="font-size:.87rem;color:var(--text-muted);margin-top:8px">Your rental deposit has been received. Our team will call you within 24 hours to confirm your tenancy.</p>
+            <div class="booking-ref" id="rentRef">NYH-R-XXXXXX</div>
+            <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:20px">Keep this reference number for your records.</p>
+            <button class="btn btn-rust" style="width:100%;justify-content:center" onclick="closeModal('rentModal')">Done — Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+? 'http://localhost:4000'
+: '';
+// ── STATE ──
+const state = {
+  bookingUnit: 'bnb1b-nyathira',
+  bookingProp: 'nyathira',
+  bookingStep: 1,
+  guests: 2,
+  total: 0,
+  rentUnit: 'bedsit',
+  rentStep: 1,
+  stkTimer: null,
+  rentStkTimer: null,
+};
+
+const unitPrices = {
+  'bnb1b-nyathira': { price: 2000, name: '1-Bed B&B Suite', prop: 'Nyathira Square', type: 'bnb' },
+  'bnb2b-nyathira': { price: 3000, name: '2-Bed B&B Suite', prop: 'Nyathira Square', type: 'bnb' },
+  'bnb2b-kibabu':   { price: 3000, name: '2-Bed B&B Suite', prop: 'Kibabu Square', type: 'bnb' },
+};
+const rentPrices = {
+  'bedsit': 6500,
+  '1bed': 12000,
+  '2bed': 13500,
+};
+const rentNames = {
+  'bedsit': 'Bedsitter',
+  '1bed': '1-Bedroom Apartment',
+  '2bed': '2-Bedroom Apartment',
+};
+
+// ── NAV ──
+window.addEventListener('scroll', () => {
+  const nav = document.getElementById('mainNav');
+  if (window.scrollY > 60) nav.classList.add('scrolled');
+  else nav.classList.remove('scrolled');
+  const bar = document.getElementById('progressBar');
+  const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+  bar.style.width = Math.min(pct, 100) + '%';
+});
+
+function toggleMobileNav() {
+  document.getElementById('mobileNav').classList.toggle('open');
+}
+function closeMobileNav() {
+  document.getElementById('mobileNav').classList.remove('open');
+}
+
+// ── SCROLL REVEAL ──
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── PROPERTY TABS ──
+function switchProp(id, btn) {
+  document.querySelectorAll('.property-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.prop-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('panel-' + id).querySelectorAll('.reveal').forEach(el => {
+    setTimeout(() => el.classList.add('visible'), 100);
+  });
+}
+function switchPropFooter(id) {
+  document.getElementById('properties').scrollIntoView({ behavior: 'smooth' });
+  setTimeout(() => {
+    const tabs = document.querySelectorAll('.prop-tab');
+    const idx = id === 'nyathira' ? 0 : 1;
+    switchProp(id, tabs[idx]);
+  }, 600);
+}
+
+// ── GALLERY ──
+const galleryImgs = [
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0544.webp', cap: 'Nyathira — Living Room' },
+  { src: 'https://nyathirahomes.com/assets/images/bnbsit.jpg', cap: 'Nyathira B&B — Living Room' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0622.webp', cap: 'Kibabu B&B — Living Room' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0558.webp', cap: 'Nyathira — Bedroom' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0625.webp', cap: 'Kibabu — Bedroom' },
+  { src: 'https://nyathirahomes.com/assets/images/bnbkitchen.jpg', cap: 'B&B Kitchen' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0633.webp', cap: 'Kibabu — Kitchen' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0590.webp', cap: 'Nyathira — Balcony' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0648.webp', cap: 'Kibabu — Bathroom' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0560.webp', cap: 'Nyathira B&B — Bedroom' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0663.webp', cap: 'Kibabu Rental — Living Room' },
+  { src: 'https://nyathirahomes.com/assets/images/DSC_0597.webp', cap: 'Nyathira Rental — Bedroom' },
+];
+let lightboxIdx = 0;
+
+function filterGallery(cat, btn) {
+  document.querySelectorAll('.gal-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.gallery-item').forEach(item => {
+    if (cat === 'all' || item.dataset.cat.includes(cat)) {
+      item.style.display = '';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+}
+
+function openLightbox(idx) {
+  lightboxIdx = idx;
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lightboxImg').src = galleryImgs[idx].src;
+  document.getElementById('lightboxCaption').textContent = galleryImgs[idx].cap;
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function navLightbox(dir) {
+  lightboxIdx = (lightboxIdx + dir + galleryImgs.length) % galleryImgs.length;
+  document.getElementById('lightboxImg').src = galleryImgs[lightboxIdx].src;
+  document.getElementById('lightboxCaption').textContent = galleryImgs[lightboxIdx].cap;
+}
+document.getElementById('lightbox').addEventListener('click', function(e) {
+  if (e.target === this) closeLightbox();
+});
+document.addEventListener('keydown', e => {
+  if (document.getElementById('lightbox').classList.contains('open')) {
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowRight') navLightbox(1);
+    if (e.key === 'ArrowLeft') navLightbox(-1);
+  }
+});
+
+// ── MODAL SYSTEM ──
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.querySelectorAll('.modal-overlay').forEach(mo => {
+  mo.addEventListener('click', function(e) {
+    if (e.target === this) closeModal(this.id);
+  });
+});
+
+// ── BOOKING FLOW ──
+function openBookingModal(unitId, propId) {
+  if (unitId) selectUnit(unitId);
+  state.bookingProp = propId || 'nyathira';
+  state.bookingStep = 1;
+  resetBookingUI();
+  document.getElementById('bookingSubtitle').textContent =
+    unitId ? (unitPrices[unitId] ? unitPrices[unitId].name + ' — ' + unitPrices[unitId].prop : 'Nyathira Homes') : 'Nyathira Homes — Thika';
+  // Set min dates
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('checkinDate').min = today;
+  document.getElementById('checkoutDate').min = today;
+  openModal('bookingModal');
+}
+
+function resetBookingUI() {
+  [1,2,3,4].forEach(i => {
+    document.getElementById('bpage' + i).classList.toggle('active', i === 1);
+    document.getElementById('bstep' + i).classList.remove('active','done');
+  });
+  document.getElementById('bstep1').classList.add('active');
+  document.getElementById('mpesaForm').style.display = '';
+  document.getElementById('stkWaiting').style.display = 'none';
+  document.getElementById('stkSuccess').style.display = 'none';
+  document.getElementById('mpesaError').classList.remove('show');
+  if (state.stkTimer) clearInterval(state.stkTimer);
+}
+
+function goBookingStep(step) {
+  if (step === 3) {
+    const ci = document.getElementById('checkinDate').value;
+    const co = document.getElementById('checkoutDate').value;
+    if (!ci || !co || new Date(co) <= new Date(ci)) {
+      showToast('Please select valid check-in and check-out dates', '⚠️'); return;
+    }
+    updateBookingSummary3();
+  }
+  if (step === 4) {
+    const name = document.getElementById('guestName').value.trim();
+    const phone = document.getElementById('guestPhone').value.trim();
+    if (!name || !phone) { showToast('Please fill in your name and phone number', '⚠️'); return; }
+    const phone10 = phone.replace(/\s/g,'');
+    document.getElementById('mpesaPhone').value = phone10.startsWith('0') ? phone10.slice(1) : phone10;
+    document.getElementById('mpesaAmtDisplay').textContent = 'Ksh ' + state.total.toLocaleString();
+    document.getElementById('mpesaAmtDetail').textContent = getNightsLabel() + ' stay';
+  }
+  const prev = state.bookingStep;
+  state.bookingStep = step;
+  document.getElementById('bpage' + prev).classList.remove('active');
+  document.getElementById('bpage' + step).classList.add('active');
+  [1,2,3,4].forEach(i => {
+    const el = document.getElementById('bstep' + i);
+    el.classList.remove('active','done');
+    if (i < step) el.classList.add('done');
+    if (i === step) el.classList.add('active');
+  });
+  document.querySelector('.modal').scrollTop = 0;
+}
+
+function selectUnit(id) {
+  state.bookingUnit = id;
+  const cardMap = { 'bnb1b-nyathira': 'ucard-bnb1b', 'bnb2b-nyathira': 'ucard-bnb2b-n', 'bnb2b-kibabu': 'ucard-bnb2b-k' };
+  const radioMap = { 'bnb1b-nyathira': 'uradio-bnb1b', 'bnb2b-nyathira': 'uradio-bnb2b-n', 'bnb2b-kibabu': 'uradio-bnb2b-k' };
+  Object.keys(cardMap).forEach(k => {
+    document.getElementById(cardMap[k]).classList.toggle('selected', k === id);
+    document.getElementById(radioMap[k]).classList.toggle('selected', false);
+  });
+  document.getElementById(cardMap[id]).classList.add('selected');
+  // radio dot
+  Object.values(radioMap).forEach(r => {
+    const el = document.getElementById(r);
+    el.style.background = ''; el.style.borderColor = '';
+  });
+  const rad = document.getElementById(radioMap[id]);
+  rad.style.background = 'var(--earth)'; rad.style.borderColor = 'var(--earth)';
+}
+
+function changeGuests(d) {
+  state.guests = Math.max(1, Math.min(10, state.guests + d));
+  document.getElementById('guestCount').textContent = state.guests;
+  updateBookingSummary();
+}
+
+function getNights() {
+  const ci = document.getElementById('checkinDate').value;
+  const co = document.getElementById('checkoutDate').value;
+  if (!ci || !co) return 0;
+  return Math.max(0, Math.round((new Date(co) - new Date(ci)) / 86400000));
+}
+function getNightsLabel() {
+  const n = getNights();
+  return n + ' night' + (n !== 1 ? 's' : '');
+}
+
+function updateBookingSummary() {
+  const nights = getNights();
+  if (nights <= 0) { document.getElementById('bookingSummary').style.display = 'none'; return; }
+  const unit = unitPrices[state.bookingUnit] || { price: 3000 };
+  const base = unit.price * nights;
+  const extraGuests = Math.max(0, state.guests - 4);
+  const extra = extraGuests * 800 * nights;
+  state.total = base + extra;
+  document.getElementById('bookingSummary').style.display = '';
+  document.getElementById('sumNights').textContent = getNightsLabel() + ' × Ksh ' + unit.price.toLocaleString();
+  document.getElementById('sumBase').textContent = 'Ksh ' + base.toLocaleString();
+  document.getElementById('sumExtraRow').style.display = extra > 0 ? '' : 'none';
+  document.getElementById('sumExtra').textContent = 'Ksh ' + extra.toLocaleString();
+  document.getElementById('sumTotal').textContent = 'Ksh ' + state.total.toLocaleString();
+}
+function updateBookingSummary3() {
+  updateBookingSummary();
+  const unit = unitPrices[state.bookingUnit] || { price: 3000 };
+  document.getElementById('sumNights2').textContent = getNightsLabel() + ' × Ksh ' + unit.price.toLocaleString() + (state.guests > 4 ? ' + extras' : '');
+  document.getElementById('sumBase2').textContent = 'Ksh ' + (unit.price * getNights()).toLocaleString();
+  document.getElementById('sumTotal2').textContent = 'Ksh ' + state.total.toLocaleString();
+}
+
+async function initiateStkPush() {
+  const phone = document.getElementById('mpesaPhone').value.replace(/\s/g,'');
+  if (!/^[71]\d{8}$/.test(phone)) {
+    document.getElementById('mpesaError').classList.add('show'); return;
+  }
+  document.getElementById('mpesaError').classList.remove('show');
+
+  const display = '+254 ' + phone.slice(0,3) + ' ' + phone.slice(3,6) + ' ' + phone.slice(6);
+  document.getElementById('stkPhoneDisplay').textContent = display;
+  document.getElementById('mpesaForm').style.display = 'none';
+  document.getElementById('stkWaiting').style.display = '';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/mpesa/stk-push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone:      '254' + phone,
+        //amount:     state.total,
+        amount:    1, // ← remove this line and uncomment the above for production
+        type:       'bnb',
+        unitId:     state.bookingUnit || 'bnb1b-nyathira',
+        property:   state.bookingProp || 'nyathira',
+        guestName:  document.getElementById('guestName').value.trim(),
+        guestPhone: document.getElementById('guestPhone').value.trim() || '0' + phone,
+        guestEmail: document.getElementById('guestEmail')?.value.trim() || '',
+        checkin:    document.getElementById('checkinDate').value,
+        checkout:   document.getElementById('checkoutDate').value,
+        nights:     getNights(),
+        guests:     state.guests,
+        notes:      document.getElementById('bookingNotes')?.value.trim() || '',
+      })
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      document.getElementById('stkWaiting').style.display = 'none';
+      document.getElementById('mpesaForm').style.display = '';
+      showToast('Payment error: ' + (data.error || 'Please try again'), '⚠️');
+      return;
+    }
+
+    state.bookingId         = data.bookingId;
+    state.checkoutRequestId = data.checkoutRequestId;
+    state.bookingRef        = data.ref;
+
+    startStkCountdown(60, 'stkCountdown', 'stkProgressFill', [1,2,3,4].map(i=>'pin'+i), 'stkWaiting', 'stkSuccess', false);
+
+  } catch (err) {
+    document.getElementById('stkWaiting').style.display = 'none';
+    document.getElementById('mpesaForm').style.display = '';
+    showToast('Network error — check your connection and try again', '⚠️');
+    console.error('[STK]', err);
+  }
+}
+function startStkCountdown(duration, counterId, progressId, pinIds, waitId, successId, isRent) {
+  let elapsed = 0;
+  const fill     = document.getElementById(progressId);
+  const timerKey = isRent ? 'rentStkTimer' : 'stkTimer';
+  const pollKey  = isRent ? 'rentPollTimer' : 'pollTimer';
+
+  clearInterval(state[timerKey]);
+  clearInterval(state[pollKey]);
+
+  // Countdown tick
+  state[timerKey] = setInterval(() => {
+    elapsed++;
+    document.getElementById(counterId).textContent = Math.max(0, duration - elapsed);
+    if (fill) fill.style.width = (elapsed / duration * 100) + '%';
+
+    // Animate PIN dots at seconds 8–11
+    if (elapsed >= 8 && elapsed <= 11)
+      document.getElementById(pinIds[elapsed - 8])?.classList.add('filled');
+
+    // Timeout
+    if (elapsed >= duration) {
+      clearInterval(state[timerKey]);
+      clearInterval(state[pollKey]);
+      document.getElementById(waitId).style.display = 'none';
+      document.getElementById(isRent ? 'rentMpesaForm' : 'mpesaForm').style.display = '';
+      pinIds.forEach(id => document.getElementById(id)?.classList.remove('filled'));
+      showToast('Payment timed out. Please try again.', '⚠️');
+    }
+  }, 1000);
+
+  // Poll /status every 3 seconds
+  const bookingId = isRent ? state.rentBookingId : state.bookingId;
+  if (!bookingId) return;
+
+  state[pollKey] = setInterval(async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/mpesa/status/${bookingId}`);
+      const d = await r.json();
+      if (!d.ok) return;
+
+      if (d.status === 'confirmed') {
+        clearInterval(state[timerKey]);
+        clearInterval(state[pollKey]);
+        document.getElementById(waitId).style.display = 'none';
+        document.getElementById(successId).style.display = '';
+        if (!isRent) {
+          document.getElementById('successProp').textContent = unitPrices[state.bookingUnit]?.prop || 'Nyathira Homes';
+          document.getElementById('bookingRef').textContent  = d.ref || state.bookingRef;
+        } else {
+          document.getElementById('rentRef').textContent = d.ref || state.rentBookingRef;
+        }
+        showToast('Payment confirmed! Booking reference sent by SMS.', '✓');
+
+      } else if (d.status === 'failed') {
+        clearInterval(state[timerKey]);
+        clearInterval(state[pollKey]);
+        document.getElementById(waitId).style.display = 'none';
+        document.getElementById(isRent ? 'rentMpesaForm' : 'mpesaForm').style.display = '';
+        pinIds.forEach(id => document.getElementById(id)?.classList.remove('filled'));
+        showToast('Payment failed. Check your M-Pesa PIN and try again.', '⚠️');
+      }
+    } catch(e) { /* network blip — keep polling */ }
+  }, 3000);
+}
+function cancelStk() {
+  clearInterval(state.stkTimer);
+  clearInterval(state.pollTimer);  // ← new
+  document.getElementById('stkWaiting').style.display = 'none';
+  document.getElementById('mpesaForm').style.display = '';
+  document.querySelectorAll('[id^="pin"]').forEach(d => d.classList.remove('filled'));
+}
+function resendStk() {
+  cancelStk();
+  setTimeout(() => initiateStkPush(), 300);
+  showToast('STK Push resent to your phone', '📱');
+}
+
+// ── RENT FLOW ──
+function openRentModal(unitId, propId) {
+  const unitKey = unitId ? unitId.split('-')[0] : 'bedsit';
+  selectRentUnit(unitKey.includes('bedsit') ? 'bedsit' : unitKey.includes('1bed') ? '1bed' : unitKey.includes('2bed') ? '2bed' : 'bedsit');
+  if (propId) document.getElementById('rentPropSelect').value = propId;
+  state.rentStep = 1;
+  resetRentUI();
+  openModal('rentModal');
+}
+function resetRentUI() {
+  [1,2,3].forEach(i => {
+    document.getElementById('rpage' + i).classList.toggle('active', i === 1);
+    document.getElementById('rstep' + i).classList.remove('active','done');
+  });
+  document.getElementById('rstep1').classList.add('active');
+  document.getElementById('rentMpesaForm').style.display = '';
+  document.getElementById('rentStkWaiting').style.display = 'none';
+  document.getElementById('rentStkSuccess').style.display = 'none';
+  document.getElementById('rentMpesaError').classList.remove('show');
+  if (state.rentStkTimer) clearInterval(state.rentStkTimer);
+}
+function selectRentUnit(key) {
+  state.rentUnit = key;
+  ['bedsit','1bed','2bed'].forEach(k => {
+    const card = document.getElementById('rucard-'+k);
+    const radio = document.getElementById('ruradio-'+k);
+    if (card) card.classList.toggle('selected', k === key);
+    if (radio) { radio.style.background = k === key ? 'var(--earth)' : ''; radio.style.borderColor = k === key ? 'var(--earth)' : ''; }
+  });
+  updateRentSummary();
+}
+function updateRentSummary() {
+  const monthly = rentPrices[state.rentUnit] || 6500;
+  document.getElementById('rentMonthly').textContent = 'Ksh ' + monthly.toLocaleString();
+  document.getElementById('rentDeposit').textContent = 'Ksh ' + monthly.toLocaleString();
+  const total = monthly * 2 + 2500;
+  document.getElementById('rentMoveInTotal').textContent = 'Ksh ' + total.toLocaleString();
+  document.getElementById('rentMpesaAmt').textContent = 'Ksh ' + total.toLocaleString();
+  state.rentTotal = total;
+}
+function goRentStep(step) {
+  if (step === 3) {
+    const name = document.getElementById('rentName').value.trim();
+    const phone = document.getElementById('rentPhone').value.trim();
+    if (!name || !phone) { showToast('Please fill in your name and phone number', '⚠️'); return; }
+    updateRentSummary();
+    const phone10 = phone.replace(/\s/g,'');
+    document.getElementById('rentMpesaPhone').value = phone10.startsWith('0') ? phone10.slice(1) : phone10;
+  }
+  const prev = state.rentStep;
+  state.rentStep = step;
+  document.getElementById('rpage' + prev).classList.remove('active');
+  document.getElementById('rpage' + step).classList.add('active');
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('rstep' + i);
+    el.classList.remove('active','done');
+    if (i < step) el.classList.add('done');
+    if (i === step) el.classList.add('active');
+  });
+  document.querySelector('.modal').scrollTop = 0;
+}
+async function initiateRentStk() {
+  const phone = document.getElementById('rentMpesaPhone').value.replace(/\s/g,'');
+  if (!/^[71]\d{8}$/.test(phone)) {
+    document.getElementById('rentMpesaError').classList.add('show'); return;
+  }
+  document.getElementById('rentMpesaError').classList.remove('show');
+
+  const display = '+254 ' + phone.slice(0,3) + ' ' + phone.slice(3,6) + ' ' + phone.slice(6);
+  document.getElementById('rentStkPhone').textContent = display;
+  document.getElementById('rentMpesaForm').style.display = 'none';
+  document.getElementById('rentStkWaiting').style.display = '';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/mpesa/stk-push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone:      '254' + phone,
+        amount:     state.rentTotal,
+        type:       'rental',
+        unitId:     state.rentUnit || 'bedsit',
+        property:   document.getElementById('rentPropSelect')?.value || 'nyathira',
+        guestName:  document.getElementById('rentName').value.trim(),
+        guestPhone: document.getElementById('rentPhone').value.trim() || '0' + phone,
+        guestEmail: document.getElementById('rentEmail')?.value.trim() || '',
+        checkin:    document.getElementById('rentMoveIn')?.value || null,
+        checkout:   null,
+        nights:     1,
+        guests:     1,
+        notes:      document.getElementById('rentNotes')?.value.trim() || '',
+      })
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      document.getElementById('rentStkWaiting').style.display = 'none';
+      document.getElementById('rentMpesaForm').style.display = '';
+      showToast('Payment error: ' + (data.error || 'Please try again'), '⚠️');
+      return;
+    }
+
+    state.rentBookingId  = data.bookingId;
+    state.rentBookingRef = data.ref;
+
+    startStkCountdown(60, 'rentStkCountdown', 'rentStkProgress', ['rpin1','rpin2','rpin3','rpin4'], 'rentStkWaiting', 'rentStkSuccess', true);
+
+  } catch (err) {
+    document.getElementById('rentStkWaiting').style.display = 'none';
+    document.getElementById('rentMpesaForm').style.display = '';
+    showToast('Network error — check your connection and try again', '⚠️');
+    console.error('[RentSTK]', err);
+  }
+}
+function cancelRentStk() {
+  clearInterval(state.rentStkTimer);
+  clearInterval(state.rentPollTimer);  // ← new
+  document.getElementById('rentStkWaiting').style.display = 'none';
+  document.getElementById('rentMpesaForm').style.display = '';
+  ['rpin1','rpin2','rpin3','rpin4'].forEach(id => document.getElementById(id).classList.remove('filled'));
+}
+
+// ── CONTACT ──
+function openContactWA(prop) {
+  const phone = prop === 'kibabu' ? '+254724101548' : '+254724211871';
+  const msg = encodeURIComponent('Hello, I am interested in renting at ' + (prop === 'kibabu' ? 'Kibabu Square' : 'Nyathira Square') + '. Are there any available units?');
+  window.open('https://wa.me/' + phone.replace('+','') + '?text=' + msg, '_blank');
+}
+
+function submitEnquiry(e) {
+  e.preventDefault();
+  showToast('Message sent! We\'ll be in touch within a few hours.', '✓');
+  e.target.reset();
+}
+
+// ── TOAST ──
+function showToast(msg, icon) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastIcon').textContent = icon || '✓';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ── INIT ──
+// Set default checkin to today
+const today = new Date();
+const yyyy = today.getFullYear();
+const mm = String(today.getMonth()+1).padStart(2,'0');
+const dd = String(today.getDate()).padStart(2,'0');
+document.getElementById('checkinDate').value = yyyy+'-'+mm+'-'+dd;
+const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+const dd2 = String(tomorrow.getDate()).padStart(2,'0');
+document.getElementById('checkoutDate').value = yyyy+'-'+mm+'-'+dd2;
+
+// Make all gallery items visible immediately
+document.querySelectorAll('.gallery-item').forEach(el => setTimeout(() => el.classList.add('visible'), 200));
+
+// Update rent summary on load
+updateRentSummary();
+</script>
+</body>
+</html>
