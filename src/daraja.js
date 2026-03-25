@@ -121,7 +121,7 @@ async function stkQuery(checkoutRequestId) {
     payload,
     { headers: { Authorization: `Bearer ${token}` } }
   );
-
+  console.log(`[stkQuery] checkoutRequestId=${checkoutRequestId}  ResultCode=${res.data?.ResultCode}`);
   return res.data;
 }
 
