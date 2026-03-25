@@ -1,6 +1,7 @@
-const express  = require('express');
-const daraja   = require('./daraja');
-const store    = require('./bookingStore');
+const express    = require('express');
+const daraja     = require('./daraja');
+const store      = require('./bookingStore');
+const msgQueue   = require('./messageQueue');
 
 const router = express.Router();
 
@@ -117,6 +118,7 @@ router.post('/stk-push', async (req, res) => {
 router.post('/callback', (req, res) => {
   // Acknowledge immediately — never let Safaricom wait
   res.json({ ResultCode: 0, ResultDesc: 'Success' });
+  console.log('[Callback] Received:', JSON.stringify(req.body));
 
   try {
     const body = req.body?.Body?.stkCallback;
@@ -128,7 +130,7 @@ router.post('/callback', (req, res) => {
     const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = body;
     console.log(`[Callback] CheckoutRequestID=${CheckoutRequestID}  ResultCode=${ResultCode}  Desc="${ResultDesc}"`);
 
-    if (ResultCode === 0) {
+    if (String(ResultCode) === '0') {
       // Payment successful — extract metadata items
       const items = CallbackMetadata?.Item || [];
       const get   = (name) => items.find(i => i.Name === name)?.Value ?? null;
@@ -141,8 +143,32 @@ router.post('/callback', (req, res) => {
 
       if (booking) {
         console.log(`[Callback] CONFIRMED bookingId=${booking.bookingId}  receipt=${booking.mpesaReceiptNumber}`);
-        // TODO: send confirmation SMS/email here
-        // TODO: notify frontend via WebSocket / Server-Sent Events here
+
+        // ── Queue booking with payment confirmation notifications (SMS + Email) ──
+        if (booking.guestEmail) {
+          try {
+            // Use the normalized phone stored in confirmed booking
+            const messagePhoneNumber = booking.confirmedPhone || booking.guestPhone;
+            msgQueue.queueBookingWithPaymentConfirmationMessages(
+              messagePhoneNumber,
+              booking.guestEmail,
+              {
+                ref: booking.ref,
+                guestName: booking.guestName,
+                mpesaReceiptNumber: booking.mpesaReceiptNumber,
+                amount: booking.amount,
+                checkin: booking.checkin,
+                checkout: booking.checkout,
+                property: booking.property,
+                transactionDate: booking.transactionDate,
+                nights: booking.nights,
+              }
+            );
+            console.log(`[Callback] Messages queued for booking ${booking.bookingId}`);
+          } catch (msgErr) {
+            console.error(`[Callback] Failed to queue messages: ${msgErr.message}`);
+          }
+        }
       } else {
         console.warn(`[Callback] No booking found for CheckoutRequestID=${CheckoutRequestID}`);
       }
@@ -201,7 +227,7 @@ router.post('/query', async (req, res) => {
     console.log(`[Query] checkoutRequestId=${checkoutRequestId}  ResultCode=${darajaRes.ResultCode}`);
 
     // If the query itself says success and callback hadn't arrived yet, confirm now
-    if (darajaRes.ResultCode === '0' && bookingId) {
+    if (String(darajaRes.ResultCode) === '0' && bookingId) {
       const b = store.getById(bookingId);
       if (b && b.status === 'pending') {
         store.confirm(checkoutRequestId, {
