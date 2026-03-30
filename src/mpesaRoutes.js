@@ -56,7 +56,7 @@ router.post('/stk-push', async (req, res) => {
     }
 
     // ── Create pending booking ──
-    const booking = store.create({
+    const booking = await store.create({
       type:        type || 'bnb',
       unitId:      unitId || 'unknown',
       property:    property || 'nyathira',
@@ -88,7 +88,7 @@ router.post('/stk-push', async (req, res) => {
     }
 
     // ── Attach CheckoutRequestID ──
-    store.attachCheckout(booking.bookingId, darajaRes.CheckoutRequestID);
+    await store.attachCheckout(booking.bookingId, darajaRes.CheckoutRequestID);
 
     console.log(`[STK] Sent → bookingId=${booking.bookingId}  checkout=${darajaRes.CheckoutRequestID}  amount=${normAmount}  phone=${normPhone}`);
 
@@ -115,7 +115,7 @@ router.post('/stk-push', async (req, res) => {
 // Must respond with { ResultCode: 0, ResultDesc: "Success" } quickly
 // — Safaricom retries if you take >10 seconds or return non-200.
 //
-router.post('/callback', (req, res) => {
+router.post('/callback', async (req, res) => {
   // Acknowledge immediately — never let Safaricom wait
   res.json({ ResultCode: 0, ResultDesc: 'Success' });
   console.log('[Callback] Received:', JSON.stringify(req.body));
@@ -135,7 +135,7 @@ router.post('/callback', (req, res) => {
       const items = CallbackMetadata?.Item || [];
       const get   = (name) => items.find(i => i.Name === name)?.Value ?? null;
 
-      const booking = store.confirm(CheckoutRequestID, {
+      const booking = await store.confirm(CheckoutRequestID, {
         mpesaReceiptNumber: get('MpesaReceiptNumber'),
         transactionDate:    String(get('TransactionDate')),
         phoneNumber:        String(get('PhoneNumber')),
@@ -175,7 +175,7 @@ router.post('/callback', (req, res) => {
 
     } else {
       // Payment failed (wrong PIN, cancelled, insufficient funds, timeout)
-      const booking = store.fail(CheckoutRequestID, ResultDesc);
+      const booking = await store.fail(CheckoutRequestID, ResultDesc);
       if (booking) {
         console.log(`[Callback] FAILED bookingId=${booking.bookingId}  reason="${ResultDesc}"`);
       }
@@ -190,8 +190,8 @@ router.post('/callback', (req, res) => {
 // Browser polls this every 3 seconds while showing the countdown timer.
 // Returns the current booking status without hitting Daraja.
 //
-router.get('/status/:bookingId', (req, res) => {
-  const booking = store.getById(req.params.bookingId);
+router.get('/status/:bookingId', async (req, res) => {
+  const booking = await store.getById(req.params.bookingId);
   if (!booking) {
     return res.status(404).json({ ok: false, error: 'Booking not found.' });
   }

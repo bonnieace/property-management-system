@@ -378,6 +378,80 @@ footer{background:var(--charcoal);padding:60px 0 32px}
   .date-grid{grid-template-columns:1fr}
 }
 
+/* ─── SCROLLBARS ─── */
+/* Main page scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--earth-light) var(--cream);
+}
+
+html::-webkit-scrollbar {
+  width: 10px;
+}
+
+html::-webkit-scrollbar-track {
+  background: var(--cream);
+  border-radius: 10px;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: var(--earth-light);
+  border-radius: 10px;
+  border: 2px solid var(--cream);
+  transition: background .2s;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: var(--earth);
+}
+
+/* Modal/overlay scrollbar */
+.modal-overlay::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-overlay::-webkit-scrollbar-track {
+  background: var(--cream);
+  border-radius: 10px;
+}
+
+.modal-overlay::-webkit-scrollbar-thumb {
+  background: var(--earth-light);
+  border-radius: 10px;
+  border: 2px solid var(--cream);
+  transition: background .2s;
+}
+
+.modal-overlay::-webkit-scrollbar-thumb:hover {
+  background: var(--earth);
+}
+
+/* Modal scrollbar */
+.modal {
+  scrollbar-width: thin;
+  scrollbar-color: var(--earth-light) var(--cream);
+}
+
+.modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal::-webkit-scrollbar-track {
+  background: var(--cream);
+  border-radius: 10px;
+}
+
+.modal::-webkit-scrollbar-thumb {
+  background: var(--earth-light);
+  border-radius: 10px;
+  border: 2px solid var(--cream);
+  transition: background .2s;
+}
+
+.modal::-webkit-scrollbar-thumb:hover {
+  background: var(--earth);
+}
+
 /* scroll track */
 .progress-bar{position:fixed;top:0;left:0;height:2px;background:var(--earth);z-index:200;width:0;transition:width .1s}
 </style>
@@ -504,8 +578,8 @@ footer{background:var(--charcoal);padding:60px 0 32px}
               <div class="spec-item"><span class="spec-icon">👥</span> 1–4 guests</div>
             </div>
             <div class="listing-actions">
-              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openBookingModal('bnb1b-nyathira','nyathira')">Book Now</button>
-              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openRentModal('bnb1b-nyathira','nyathira')">Enquire</button>
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openCalendarForListing('bnb1b-nyathira','nyathira')">📅 Check Dates</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openBookingModal('bnb1b-nyathira','nyathira')">Book</button>
             </div>
           </div>
         </div>
@@ -526,8 +600,8 @@ footer{background:var(--charcoal);padding:60px 0 32px}
               <div class="spec-item"><span class="spec-icon">👥</span> 1–4 guests</div>
             </div>
             <div class="listing-actions">
-              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openBookingModal('bnb2b-nyathira','nyathira')">Book Now</button>
-              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openRentModal('bnb2b-nyathira','nyathira')">Enquire</button>
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openCalendarForListing('bnb2b-nyathira','nyathira')">📅 Check Dates</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openBookingModal('bnb2b-nyathira','nyathira')">Book</button>
             </div>
           </div>
         </div>
@@ -642,8 +716,8 @@ footer{background:var(--charcoal);padding:60px 0 32px}
               <div class="spec-item"><span class="spec-icon">👥</span> 1–4 guests</div>
             </div>
             <div class="listing-actions">
-              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openBookingModal('bnb2b-kibabu','kibabu')">Book Now</button>
-              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('kibabu')">WhatsApp</button>
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openCalendarForListing('bnb2b-kibabu','kibabu')">📅 Check Dates</button>
+              <button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openBookingModal('bnb2b-kibabu','kibabu')">Book</button>
             </div>
           </div>
         </div>
@@ -1107,6 +1181,10 @@ footer{background:var(--charcoal);padding:60px 0 32px}
 
       <!-- Page 2: Dates -->
       <div class="booking-page" id="bpage2">
+        <div style="margin-bottom:16px">
+          <button type="button" class="btn btn-outline btn-sm" onclick="openCalendarPicker()" style="width:100%;justify-content:center;color:var(--earth);border-color:var(--earth)">📅 Pick dates on calendar</button>
+        </div>
+        <div style="text-align:center;font-size:.8rem;color:var(--text-muted);margin-bottom:16px">or enter manually:</div>
         <div class="date-grid">
           <div class="form-group"><label>Check-in</label><input type="date" id="checkinDate" min="" oninput="updateBookingSummary()"/></div>
           <div class="form-group"><label>Check-out</label><input type="date" id="checkoutDate" min="" oninput="updateBookingSummary()"/></div>
@@ -1357,6 +1435,25 @@ footer{background:var(--charcoal);padding:60px 0 32px}
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════
+     CALENDAR MODAL
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="calendarModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Select Dates</div>
+        <div class="modal-subtitle" id="calendarModalSubtitle">Choose check-in and check-out dates</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('calendarModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div id="calendarContainer"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/calendar.js"></script>
 <script>
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 ? 'http://localhost:4000'
@@ -1875,6 +1972,61 @@ function cancelRentStk() {
   document.getElementById('rentStkWaiting').style.display = 'none';
   document.getElementById('rentMpesaForm').style.display = '';
   ['rpin1','rpin2','rpin3','rpin4'].forEach(id => document.getElementById(id).classList.remove('filled'));
+}
+
+// ── CALENDAR ──
+function openCalendarForListing(unitId, property) {
+  // Pre-select the unit in booking modal
+  state.bookingUnit = unitId;
+  state.bookingProp = property;
+  
+  // Update all unit cards to deselect previous
+  document.querySelectorAll('.unit-select-card').forEach(card => card.classList.remove('selected'));
+  document.querySelectorAll('.unit-radio').forEach(radio => {
+    radio.style.background = '';
+    radio.style.borderColor = '';
+  });
+  
+  // Select the unit from listing
+  const cardKey = unitId.includes('bnb1b') ? 'bnb1b' : unitId.includes('bnb2b') ? 'bnb2b' : 'bnb2b';
+  const cardEl = document.getElementById(`ucard-${cardKey}${unitId.includes('kibabu') ? '-k' : unitId.includes('nyathira') && unitId.includes('bnb2b') ? '-n' : ''}`);
+  
+  if (cardEl) {
+    cardEl.classList.add('selected');
+    const radio = cardEl.querySelector('.unit-radio');
+    if (radio) {
+      radio.style.background = 'var(--earth)';
+      radio.style.borderColor = 'var(--earth)';
+    }
+  }
+  
+  // Initialize calendar for this unit
+  CalendarWidget.init(unitId, 'calendarContainer');
+  
+  // Update modal subtitle
+  const unit = unitPrices[unitId];
+  if (unit) {
+    document.getElementById('calendarModalSubtitle').textContent = `${unit.name} — ${unit.prop}`;
+  }
+  
+  // Open calendar modal
+  openModal('calendarModal');
+}
+
+function openCalendarPicker() {
+  const unitId = state.bookingUnit || 'bnb1b-nyathira';
+  
+  // Initialize calendar for the selected unit
+  CalendarWidget.init(unitId, 'calendarContainer');
+  
+  // Update modal subtitle
+  const unit = unitPrices[unitId];
+  if (unit) {
+    document.getElementById('calendarModalSubtitle').textContent = `${unit.name} — ${unit.prop}`;
+  }
+  
+  // Open modal
+  openModal('calendarModal');
 }
 
 // ── CONTACT ──
