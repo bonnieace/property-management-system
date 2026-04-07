@@ -1,52 +1,59 @@
 /**
  * ADMIN AUTHENTICATION SYSTEM
  * JWT-based authentication for admin users
+ * Uses database for credential storage with bcrypt hashing
  */
 
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const db = require('./db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nyathira-admin-secret-key-change-in-production';
 const JWT_EXPIRY = '7d';
 
 /**
- * Hardcoded admin credentials (in production, store in database with hashed passwords)
+ * Get admin user with their assigned properties
  */
-const ADMIN_USERS = {
-  'irene': {
-    password: process.env.ADMIN_PASSWORD_IRENE || 'secure-password-irene',
-    name: 'Irene Kariuki',
-    email: 'irene@nyathirahomes.com',
-    property: 'nyathira'
-  },
-  'susan': {
-    password: process.env.ADMIN_PASSWORD_SUSAN || 'secure-password-susan',
-    name: 'Susan Koech',
-    email: 'susan@nyathirahomes.com',
-    property: 'kibabu'
-  },
-  'manager': {
-    password: process.env.ADMIN_PASSWORD_MANAGER || 'secure-password-manager',
-    name: 'Property Manager',
-    email: 'manager@nyathirahomes.com',
-    property: null // Full access
+async function getAdminWithProperties(adminId) {
+  try {
+    const admin = await db('admin_users').where('id', adminId).first();
+    
+    if (!admin) {
+      return null;
+    }
+
+    let properties = [];
+    
+    // Only property_admin role has property assignments
+    if (admin.role === 'property_admin') {
+      properties = await db('admin_properties')
+        .join('properties', 'admin_properties.property_id', '=', 'properties.id')
+        .where('admin_properties.admin_id', adminId)
+        .select('properties.id', 'properties.property_id', 'properties.name');
+    }
+
+    return {
+      ...admin,
+      properties
+    };
+  } catch (err) {
+    console.error('Error getting admin with properties:', err);
+    return null;
   }
-};
+}
 
 /**
  * Generate JWT token for admin user
  */
-function generateToken(username) {
-  const user = ADMIN_USERS[username];
-  if (!user) return null;
-
+function generateToken(admin) {
   const token = jwt.sign(
     {
-      username,
-      name: user.name,
-      email: user.email,
-      property: user.property,
-      role: 'admin',
+      id: admin.id,
+      username: admin.username,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+      properties: admin.properties || [],
       iat: Math.floor(Date.now() / 1000)
     },
     JWT_SECRET,
@@ -71,28 +78,50 @@ function verifyToken(token) {
 /**
  * Authenticate admin user with username/password
  */
-function authenticateUser(username, password) {
-  const user = ADMIN_USERS[username];
-  
-  if (!user) {
-    return { ok: false, error: 'Invalid username or password' };
-  }
-
-  if (user.password !== password) {
-    return { ok: false, error: 'Invalid username or password' };
-  }
-
-  const token = generateToken(username);
-  return {
-    ok: true,
-    token,
-    user: {
-      username,
-      name: user.name,
-      email: user.email,
-      property: user.property
+async function authenticateUser(username, password) {
+  try {
+    // Query database for admin user
+    const admin = await db('admin_users')
+      .where('username', username)
+      .where('status', 'active')
+      .first();
+    
+    if (!admin) {
+      return { ok: false, error: 'Invalid username or password' };
     }
-  };
+
+    // Compare password with bcrypt hash
+    const passwordMatch = await bcrypt.compare(password, admin.password_hash);
+    
+    if (!passwordMatch) {
+      return { ok: false, error: 'Invalid username or password' };
+    }
+
+    // Update last_login
+    await db('admin_users').where('id', admin.id).update({
+      last_login: db.fn.now()
+    });
+
+    // Get admin with properties
+    const adminWithProps = await getAdminWithProperties(admin.id);
+    const token = generateToken(adminWithProps);
+
+    return {
+      ok: true,
+      token,
+      user: {
+        id: adminWithProps.id,
+        username: adminWithProps.username,
+        name: adminWithProps.name,
+        email: adminWithProps.email,
+        role: adminWithProps.role,
+        properties: adminWithProps.properties
+      }
+    };
+  } catch (err) {
+    console.error('Error authenticating user:', err);
+    return { ok: false, error: 'Authentication error' };
+  }
 }
 
 /**
@@ -117,20 +146,42 @@ function adminAuthMiddleware(req, res, next) {
 
 /**
  * Middleware: Check if admin has access to specific property
+ * Full-admin role: always allowed
+ * Property-admin role: must have property assignment in admin_properties
  */
-function propertyAccessMiddleware(req, res, next) {
+async function propertyAccessMiddleware(req, res, next) {
   const admin = req.admin;
   
-  // Manager has full access
-  if (!admin.property) {
+  // Full-access admins skip property validation
+  if (admin.role === 'full_admin') {
     return next();
   }
 
-  // Property-specific admins can only access their property
-  const requestedProperty = req.query.property || req.body.property;
+  // Property-specific admins can only access assigned properties
+  const requestedProperty = req.query.property || req.body.property || req.params.propertyId;
   
-  if (requestedProperty && requestedProperty !== admin.property) {
-    return res.status(403).json({ ok: false, error: 'Access denied: insufficient permissions' });
+  if (requestedProperty) {
+    // Check if admin has access to this property
+    const hasAccess = admin.properties && admin.properties.some(p => 
+      p.property_id === requestedProperty || String(p.id) === String(requestedProperty)
+    );
+
+    if (!hasAccess) {
+      return res.status(403).json({ ok: false, error: 'Access denied: insufficient permissions' });
+    }
+  }
+
+  next();
+}
+
+/**
+ * Middleware: Check if admin is full-access only
+ */
+function fullAccessMiddleware(req, res, next) {
+  const admin = req.admin;
+
+  if (admin.role !== 'full_admin') {
+    return res.status(403).json({ ok: false, error: 'Access denied: full admin access required' });
   }
 
   next();
@@ -143,13 +194,13 @@ function permissionMiddleware(permission) {
   return (req, res, next) => {
     const admin = req.admin;
 
-    // All admins can read. Managers can write.
+    // All authenticated admins can read
     if (permission === 'read') {
       return next();
     }
 
-    if (permission === 'write' && !admin.property) {
-      // Manager (full access) can write
+    // Full-admin can write, property-admin can also write (property-scoped)
+    if (permission === 'write') {
       return next();
     }
 
@@ -161,8 +212,10 @@ module.exports = {
   generateToken,
   verifyToken,
   authenticateUser,
+  getAdminWithProperties,
   adminAuthMiddleware,
   propertyAccessMiddleware,
+  fullAccessMiddleware,
   permissionMiddleware,
   JWT_SECRET,
   JWT_EXPIRY

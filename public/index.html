@@ -1895,7 +1895,9 @@ function goRentStep(step) {
   if (step === 3) {
     const name = document.getElementById('rentName').value.trim();
     const phone = document.getElementById('rentPhone').value.trim();
+    const moveIn = document.getElementById('rentMoveIn').value.trim();
     if (!name || !phone) { showToast('Please fill in your name and phone number', '⚠️'); return; }
+    if (!moveIn) { showToast('Please select a move-in date', '⚠️'); return; }
     updateRentSummary();
     const phone10 = phone.replace(/\s/g,'');
     document.getElementById('rentMpesaPhone').value = phone10.startsWith('0') ? phone10.slice(1) : phone10;
@@ -1925,15 +1927,20 @@ async function initiateRentStk() {
   document.getElementById('rentStkWaiting').style.display = '';
 
   try {
+    const property = document.getElementById('rentPropSelect')?.value || 'nyathira';
+    const unitShort = state.rentUnit || 'bedsit';
+    const fullUnitId = `${unitShort}-${property}`;
+
     const res = await fetch(`${API_BASE}/api/mpesa/stk-push`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         phone:      '254' + phone,
-        amount:     state.rentTotal,
+        // amount:     state.rentTotal,
+        amount:    1, // ← remove this line and uncomment the above for production
         type:       'rental',
-        unitId:     state.rentUnit || 'bedsit',
-        property:   document.getElementById('rentPropSelect')?.value || 'nyathira',
+        unitId:     fullUnitId,
+        property:   property,
         guestName:  document.getElementById('rentName').value.trim(),
         guestPhone: document.getElementById('rentPhone').value.trim() || '0' + phone,
         guestEmail: document.getElementById('rentEmail')?.value.trim() || '',
