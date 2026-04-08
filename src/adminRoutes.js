@@ -119,7 +119,8 @@ router.post('/properties', adminAuthMiddleware, async (req, res) => {
       status: 'active'
     };
 
-    const [id] = await db('properties').insert(newProperty);
+    const result = await db('properties').insert(newProperty).returning('id');
+    const id = Array.isArray(result) ? result[0].id : result.id;
 
     const createdProperty = await db('properties').where('id', id).first();
 
@@ -272,7 +273,8 @@ router.post('/units', adminAuthMiddleware, async (req, res) => {
       status: 'active'
     };
 
-    const [id] = await db('units').insert(newUnit);
+    const result = await db('units').insert(newUnit).returning('id');
+    const id = Array.isArray(result) ? result[0].id : result.id;
     const createdUnit = await db('units').where('id', id).first();
 
     res.status(201).json({
@@ -434,7 +436,8 @@ router.post('/pricing-rules', adminAuthMiddleware, permissionMiddleware('write')
       updated_at: now
     };
 
-    const [id] = await db('pricing_rules').insert(rule);
+    const result = await db('pricing_rules').insert(rule).returning('id');
+    const id = Array.isArray(result) ? result[0].id : result.id;
 
     res.json({
       ok: true,
@@ -571,7 +574,8 @@ router.post('/blocked-dates', adminAuthMiddleware, permissionMiddleware('write')
       created_at: now
     };
 
-    const [id] = await db('availability_blocks').insert(block);
+    const result = await db('availability_blocks').insert(block).returning('id');
+    const id = Array.isArray(result) ? result[0].id : result.id;
 
     res.json({
       ok: true,
@@ -1047,7 +1051,7 @@ router.post('/admins', adminAuthMiddleware, fullAccessMiddleware, async (req, re
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     // Create admin
-    const [adminId] = await db('admin_users').insert({
+    const result = await db('admin_users').insert({
       username,
       name,
       email,
@@ -1056,7 +1060,8 @@ router.post('/admins', adminAuthMiddleware, fullAccessMiddleware, async (req, re
       status: 'active',
       created_at: db.fn.now(),
       updated_at: db.fn.now()
-    });
+    }).returning('id');
+    const adminId = Array.isArray(result) ? result[0].id : result.id;
 
     const admin = await getAdminWithProperties(adminId);
 

@@ -234,7 +234,7 @@ function openAddUnitModal() {
   document.getElementById('unitTypeField').value = 'bnb';
   updateConditionalFields();
   
-  document.getElementById('unitsModalOverlay').classList.add('show');
+  document.getElementById('unitsModalOverlay').classList.add('open');
   unitsState.isModalOpen = true;
 }
 
@@ -284,7 +284,7 @@ async function openEditUnitModal(unitId) {
     // Show conditional fields
     updateConditionalFields();
     
-    document.getElementById('unitsModalOverlay').classList.add('show');
+    document.getElementById('unitsModalOverlay').classList.add('open');
     unitsState.isModalOpen = true;
   } catch (err) {
     console.error('[Edit Unit Modal]', err);
@@ -293,7 +293,7 @@ async function openEditUnitModal(unitId) {
 }
 
 function closeUnitsModal() {
-  document.getElementById('unitsModalOverlay').classList.remove('show');
+  document.getElementById('unitsModalOverlay').classList.remove('open');
   unitsState.isModalOpen = false;
   unitsState.selectedUnit = null;
   document.getElementById('unitForm').reset();

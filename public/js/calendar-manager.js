@@ -11,37 +11,61 @@ const calendarManager = {
   units: [],
 
   /**
-   * Initialize FullCalendar instance
+   * Full initialization: load units, set up UI, initialize calendar, and fetch events
+   * Called when user navigates to Calendar page
    */
-  init() {
-    console.log('[Calendar Manager] init() called');
+  async init() {
+    console.log('[Calendar Manager] Initializing calendar manager');
     
-    // Prevent double initialization
+    // Prevent double initialization - just refresh if already initialized
     if (this.initialized) {
-      console.log('[Calendar Manager] Already initialized, refreshing...');
-      this.refreshCalendar();
-      return;
-    }
-
-    const calendarEl = document.getElementById('calendarContainer');
-    if (!calendarEl) {
-      console.error('[Calendar Manager] Calendar container not found');
-      return;
-    }
-
-    // Check if FullCalendar is available
-    if (typeof FullCalendar === 'undefined') {
-      console.error('[Calendar Manager] FullCalendar library not loaded');
-      showToast('Calendar library failed to load', '⚠️');
+      console.log('[Calendar Manager] Already initialized, refreshing data...');
+      await this.refreshCalendar();
       return;
     }
 
     try {
+      // Check if FullCalendar is available
+      if (typeof FullCalendar === 'undefined') {
+        console.error('[Calendar Manager] FullCalendar library not loaded');
+        showToast('Calendar library failed to load', '⚠️');
+        return;
+      }
+
+      // Verify calendar container exists
+      const calendarEl = document.getElementById('adminCalendar');
+      if (!calendarEl) {
+        console.error('[Calendar Manager] Calendar container #adminCalendar not found');
+        return;
+      }
+
+      // Load units first if not already loaded
+      if (!this.units || this.units.length === 0) {
+        console.log('[Calendar Manager] Loading units...');
+        await this.loadUnits();
+      }
+
+      // Handle unit filter visibility based on user access
+      const unitFilterContainer = document.getElementById('unitFilterContainer');
+      if (window.state?.user?.property) {
+        // Building-specific admin: hide filter (they only see their property's units)
+        console.log('[Calendar Manager] Building-specific admin, hiding unit filter');
+        unitFilterContainer.style.display = 'none';
+      } else {
+        // Full access admin: show filter
+        console.log('[Calendar Manager] Full access admin, showing unit filter');
+        unitFilterContainer.style.display = 'flex';
+      }
+
+      // Populate unit dropdown
+      this.populateUnitSelect();
+
+      // Initialize FullCalendar instance
       console.log('[Calendar Manager] Creating FullCalendar instance...');
       this.calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         headerToolbar: {
-          left: 'prev,next today addEventButton',
+          left: 'prev,next today',
           center: 'title',
           right: 'dayGridMonth'
         },
@@ -50,12 +74,6 @@ const calendarManager = {
         editable: false,
         eventClick: (info) => this.handleEventClick(info),
         datesSet: (info) => this.onDatesSet(info),
-        customButtons: {
-          addEventButton: {
-            text: '+ Create Booking',
-            click: () => this.openQuickBookingModal()
-          }
-        },
         eventDidMount: (info) => this.styleEvent(info),
       });
 
@@ -63,8 +81,10 @@ const calendarManager = {
       console.log('[Calendar Manager] FullCalendar rendered successfully');
       
       this.initialized = true;
-      this.loadUnits();
-      this.refreshCalendar();
+
+      // Load and display events
+      await this.refreshCalendar();
+      console.log('[Calendar Manager] Initialization complete');
     } catch (err) {
       console.error('[Calendar Manager] Failed to initialize calendar:', err);
       showToast('Failed to initialize calendar', '⚠️');
@@ -91,15 +111,29 @@ const calendarManager = {
 
   /**
    * Populate unit dropdown
+   * Uses numeric id as value for consistency with database operations
+   * Filters units by user's assigned property for building-specific admins
    */
   populateUnitSelect() {
     const select = document.getElementById('unitSelectCal');
     if (!select) return;
 
-    select.innerHTML = '<option value="">All Units</option>' +
-      (this.units || [])
-        .map(u => `<option value="${u.unit_id}">${u.name || u.unit_id}</option>`)
-        .join('');
+    // Filter units based on user's access level
+    let accessibleUnits = this.units || [];
+    if (window.state?.user?.property) {
+      // Building-specific admin: only show their property's units
+      accessibleUnits = accessibleUnits.filter(u => u.property_id === window.state.user.property);
+    }
+
+    // Build display label with unit info: "2B B&B - 1 Bedroom Apartment"
+    const options = accessibleUnits.map(u => {
+      const bedroomLabel = u.bedrooms === 0 ? 'Studio' : `${u.bedrooms}B`;
+      const typeLabel = u.type.toUpperCase();
+      const displayLabel = `${bedroomLabel} ${typeLabel} - ${u.name || u.unit_id}`;
+      return `<option value="${u.id}">${displayLabel}</option>`;
+    }).join('');
+
+    select.innerHTML = '<option value="">All Units</option>' + options;
   },
 
   /**

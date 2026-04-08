@@ -118,7 +118,7 @@ function openAddPropertyModal() {
   document.getElementById('propertyIdField').querySelector('input').readOnly = false;
   document.getElementById('deletePropertyBtn').style.display = 'none';
   document.getElementById('propertyFormError').classList.remove('show');
-  document.getElementById('propertiesModalOverlay').classList.add('show');
+  document.getElementById('propertiesModalOverlay').classList.add('open');
   propertiesState.isModalOpen = true;
 }
 
@@ -160,7 +160,7 @@ async function openEditPropertyModal(propertyId) {
     document.getElementById('propertyFormError').classList.remove('show');
     
     // Open modal
-    document.getElementById('propertiesModalOverlay').classList.add('show');
+    document.getElementById('propertiesModalOverlay').classList.add('open');
     propertiesState.isModalOpen = true;
   } catch (err) {
     console.error('[Edit Property Modal]', err);
@@ -169,7 +169,7 @@ async function openEditPropertyModal(propertyId) {
 }
 
 function closePropertiesModal() {
-  document.getElementById('propertiesModalOverlay').classList.remove('show');
+  document.getElementById('propertiesModalOverlay').classList.remove('open');
   propertiesState.isModalOpen = false;
   propertiesState.selectedProperty = null;
   document.getElementById('propertyForm').reset();

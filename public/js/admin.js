@@ -339,7 +339,7 @@ function showPage(page) {
     'access-control': 'accessControlPage',
     'admin-users': 'adminUsersPage',
     'bookings': 'bookingsPage',
-    'rentals': 'rentalsPage',
+    'tenants': 'tenantsPage',
     'waitlist': 'waitlistPage',
     'audit-log': 'auditLogPage'
   };
@@ -370,7 +370,7 @@ function showPage(page) {
     'access-control': 'Access Control',
     'admin-users': 'Admin Users',
     'bookings': 'Bookings',
-    'rentals': 'Rentals',
+    'tenants': 'Tenants',
     'waitlist': 'Waitlist',
     'audit-log': 'Audit Log'
   };
@@ -405,7 +405,7 @@ function showPage(page) {
     if (page === 'properties') initPropertiesManager();
     if (page === 'units') initUnitsManager();
     if (page === 'bookings') loadBookings();
-    if (page === 'rentals') loadRentals();
+    if (page === 'tenants') loadTenants();
     if (page === 'pricing-manager') loadPricingRules();
     if (page === 'blocked-dates') loadBlockedDates();
     if (page === 'tank-manager') initializeTankManager();
@@ -433,8 +433,8 @@ function showSkeletonForPage(page) {
       SkeletonLoader.showDashboardSkeleton();
       break;
     case 'bookings':
-    case 'rentals':
-      SkeletonLoader.showTableSkeleton(page === 'bookings' ? 'bookingsTableBody' : 'rentalsTableBody', 8, 8);
+    case 'tenants':
+      SkeletonLoader.showTableSkeleton(page === 'bookings' ? 'bookingsTableBody' : 'tenantsTableBody', 8, 8);
       break;
     case 'units':
       SkeletonLoader.showTableSkeleton('unitsTableBody', 8, 8);
@@ -473,31 +473,28 @@ function updateUserDisplay() {
   document.getElementById('userProperty').textContent = userPropertyText;
   document.getElementById('userBadge').textContent = (user.name || 'A').charAt(0).toUpperCase();
 
-  // Show admin users nav link only for full_admin role
-  const adminUsersNavLink = document.getElementById('adminUsersNavLink');
-  console.log('🔐 [updateUserDisplay] adminUsersNavLink element:', adminUsersNavLink);
+  // Show admin users section only for full_admin role
+  const shouldShowAdmin = user.role === 'full_admin';
   
-  if (adminUsersNavLink) {
-    const shouldShow = user.role === 'full_admin';
-    console.log('🔐 [updateUserDisplay] Should show Admin Users link:', shouldShow, '(role:', user.role, ')');
-    adminUsersNavLink.style.display = shouldShow ? 'flex' : 'none';
-    console.log('🔐 [updateUserDisplay] Set adminUsersNavLink.style.display to:', adminUsersNavLink.style.display);
-    console.log('🔐 [updateUserDisplay] Computed style display:', window.getComputedStyle(adminUsersNavLink).display);
-    try {
-      adminUsersNavLink.setAttribute('data-debug', 'true');
-      console.log('🔐 [updateUserDisplay] Nav link HTML:', adminUsersNavLink.outerHTML);
-    } catch(e) {}
+  // Desktop: Show/hide Administration section in sidebar
+  const adminSidebarSection = document.getElementById('adminSidebarSection');
+  console.log('🔐 [updateUserDisplay] adminSidebarSection element:', adminSidebarSection);
+  
+  if (adminSidebarSection) {
+    console.log('🔐 [updateUserDisplay] Should show Admin sidebar section:', shouldShowAdmin, '(role:', user.role, ')');
+    adminSidebarSection.style.display = shouldShowAdmin ? 'block' : 'none';
+    console.log('🔐 [updateUserDisplay] Set adminSidebarSection.style.display to:', adminSidebarSection.style.display);
   } else {
-    console.warn('❌ [updateUserDisplay] adminUsersNavLink element not found!');
+    console.warn('❌ [updateUserDisplay] adminSidebarSection element not found!');
   }
 
+  // Mobile/Tablet: Show/hide Administration section in drawer
   const adminUsersDrawerSection = document.getElementById('adminUsersDrawerSection');
   console.log('🔐 [updateUserDisplay] adminUsersDrawerSection element:', adminUsersDrawerSection);
   
   if (adminUsersDrawerSection) {
-    const shouldShow = user.role === 'full_admin';
-    console.log('🔐 [updateUserDisplay] Should show drawer Admin Users section:', shouldShow);
-    adminUsersDrawerSection.style.display = shouldShow ? 'block' : 'none';
+    console.log('🔐 [updateUserDisplay] Should show drawer Admin Users section:', shouldShowAdmin);
+    adminUsersDrawerSection.style.display = shouldShowAdmin ? 'block' : 'none';
     console.log('🔐 [updateUserDisplay] Set adminUsersDrawerSection.style.display to:', adminUsersDrawerSection.style.display);
   } else {
     console.warn('❌ [updateUserDisplay] adminUsersDrawerSection element not found!');
@@ -533,41 +530,33 @@ async function loadUnits() {
   try {
     const response = await fetch(`${API_BASE}/api/calendar/units`);
     const data = await response.json();
+    
+    console.log('[loadUnits] Raw response:', data);
+    console.log('[loadUnits] Response structure - ok:', data.ok, 'data length:', data.data?.length);
 
     if (data.ok && data.data) {
       state.units = data.data;
-      populateUnitSelects();
+      console.log('[loadUnits] Stored in state.units:', state.units.length, 'units');
+    } else {
+      console.warn('[loadUnits] Failed to load - response:', { ok: data.ok, data: !!data.data, error: data.error });
     }
   } catch (err) {
     console.error('Load units error:', err);
   }
 }
 
-function populateUnitSelects() {
-  const select = document.getElementById('unitSelectCal');
-  if (!select) return;
-
-  // Filter units based on user's access level
-  let accessibleUnits = state.units;
-  if (state.user.property) {
-    // Building-specific admin: only show their property's units
-    accessibleUnits = state.units.filter(u => u.property_id === state.user.property);
-  }
-
-  const html = '<option value="">All Units</option>' +
-    accessibleUnits.map(u => `<option value="${u.id}">${u.name || u.unit_id}</option>`).join('');
-  select.innerHTML = html;
-}
-
 async function loadDashboardData() {
   try {
-    const bookingsData = await apiCall('/bookings?status=confirmed&limit=5');
-    const waitlistData = await apiCall('/waitlist?limit=1');
-    const pricingData = await apiCall('/pricing-rules');
+    // Load all confirmed bookings
+    const allBookingsData = await apiCall('/bookings?status=confirmed');
+    const unitsData = await apiCall('/units');
 
-    const bookings = bookingsData.data || [];
-    const waitlist = waitlistData.data || [];
-    const pricing = pricingData.data || [];
+    const allBookings = allBookingsData.data || [];
+    const units = unitsData.data || [];
+
+    // Classify bookings: "rental" = rental, else = BnB
+    const bnbBookings = allBookings.filter(b => b.booking_type !== 'rental');
+    const rentalBookings = allBookings.filter(b => b.booking_type === 'rental');
 
     // Remove skeleton loading styles
     const statValues = document.querySelectorAll('#dashboardPage .stat-value');
@@ -578,34 +567,132 @@ async function loadDashboardData() {
       el.style.minHeight = '';
     });
 
-    // Update stats
-    document.getElementById('statMonthlyBookings').textContent = bookings.length;
-    document.getElementById('statRevenue').textContent = 
-      bookings.reduce((sum, b) => sum + (b.total_amount_kes || 0), 0).toLocaleString();
-    document.getElementById('statWaitlist').textContent = waitlist.length;
-    document.getElementById('statPricingRules').textContent = pricing.length;
+    // Calculate revenues
+    const bnbRevenue = bnbBookings.reduce((sum, b) => sum + (b.total_amount_kes || 0), 0);
+    const rentalRevenue = rentalBookings.reduce((sum, b) => sum + (b.total_amount_kes || 0), 0);
 
-    // Recent bookings
-    const recentHtml = bookings.length > 0
-      ? bookings.map(b => `
-          <div style="padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-            <div>
-              <div style="font-weight: 500;">${b.guest_name || 'Guest'}</div>
-              <div style="font-size: .8rem; color: var(--text-light);">${b.unit_id} • ${b.checkin_date}</div>
+    // Update stats
+    document.getElementById('statBnbBookings').textContent = bnbBookings.length;
+    document.getElementById('statBnbRevenue').textContent = bnbRevenue.toLocaleString();
+    document.getElementById('statRentalBookings').textContent = rentalBookings.length;
+    document.getElementById('statRentalRevenue').textContent = rentalRevenue.toLocaleString();
+
+    // Update the dashboard chart with real data (all booking types)
+    updateRevenueChartData(allBookings, 'week');
+
+    // Recent BnB bookings - Modern list format
+    const recentHtml = bnbBookings.slice(0, 5).length > 0
+      ? bnbBookings.slice(0, 5).map((b, idx) => {
+        const icons = ['✅', '📅', '🏠', '💼', '🎯'];
+        const icon = icons[idx % icons.length];
+        return `
+          <div class="list-item">
+            <div class="list-item-icon">${icon}</div>
+            <div class="list-item-content">
+              <div class="list-item-title">${b.guest_name || 'Guest'}</div>
+              <div class="list-item-subtitle">${b.unit_id} • ${new Date(b.checkin_date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</div>
             </div>
-            <div style="text-align: right; font-weight: 500;">Ksh ${(b.total_amount_kes || 0).toLocaleString()}</div>
+            <div class="list-item-value">KES ${(b.total_amount_kes || 0).toLocaleString()}</div>
           </div>
-        `).join('')
-      : '<div style="color: var(--text-muted);">No recent bookings</div>';
+        `;
+      }).join('')
+      : '<div style="color: var(--text-muted); padding: 20px; text-align: center;">No recent B&B bookings</div>';
 
     const recentContainer = document.getElementById('recentBookingsContainer');
     recentContainer.innerHTML = recentHtml;
     recentContainer.style.opacity = '1';
 
-    // Upcoming events (placeholder for now)
+    // Calculate occupancy by individual unit
+    if (units && units.length > 0) {
+      const unitOccupancy = {};
+      
+      // Initialize all units
+      units.forEach(unit => {
+        unitOccupancy[unit.id] = { 
+          name: unit.name, 
+          property: unit.property_name || unit.property,
+          type: unit.type || 'Standard',
+          bookingDaysThisMonth: 0,
+          totalDaysThisMonth: 0
+        };
+      });
+
+      // Calculate occupancy percentage for each unit
+      const today = new Date();
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const totalDaysInMonth = monthEnd.getDate();
+
+      // Count booked days for each unit this month
+      allBookings.forEach(booking => {
+        const checkin = new Date(booking.checkin_date);
+        const checkout = new Date(booking.checkout_date);
+        
+        if (unitOccupancy[booking.unit_id]) {
+          // Calculate overlap between booking and current month
+          const overlapStart = new Date(Math.max(checkin.getTime(), monthStart.getTime()));
+          const overlapEnd = new Date(Math.min(checkout.getTime(), monthEnd.getTime()));
+          
+          if (overlapStart <= overlapEnd) {
+            const daysBooked = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+            unitOccupancy[booking.unit_id].bookingDaysThisMonth += daysBooked;
+          }
+        }
+      });
+
+      // Calculate occupancy percentage for each unit
+      Object.keys(unitOccupancy).forEach(unitId => {
+        unitOccupancy[unitId].totalDaysThisMonth = totalDaysInMonth;
+      });
+
+      // Update occupancy display - show top 5 units with progress bars
+      const occupancyContainer = document.getElementById('occupancyContainer');
+      if (occupancyContainer) {
+        const topUnits = Object.entries(unitOccupancy).slice(0, 5).map(([unitId, data]) => {
+          const percentage = data.totalDaysThisMonth > 0 
+            ? Math.round((data.bookingDaysThisMonth / data.totalDaysThisMonth) * 100) 
+            : 0;
+          return `
+            <div class="list-item">
+              <div class="list-item-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </div>
+              <div class="list-item-content">
+                <div class="list-item-title">${data.name} <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">(${data.type})</span></div>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-track">
+                    <div class="progress-bar-fill" style="width: ${percentage}%;"></div>
+                  </div>
+                  <div class="progress-bar-value">${percentage}%</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        occupancyContainer.innerHTML = topUnits;
+      }
+    }
+
+    // Upcoming events with modern styling
+    const upcomingEvents = [
+      { name: 'Monthly Review', date: 'Tomorrow', icon: '📋' },
+      { name: 'Maintenance Check', date: 'Next Week', icon: '🔧' },
+      { name: 'Financial Report', date: 'End of Month', icon: '📊' }
+    ];
+    
+    const upcomingHtml = upcomingEvents.map(event => `
+      <div class="list-item">
+        <div class="list-item-icon">${event.icon}</div>
+        <div class="list-item-content">
+          <div class="list-item-title">${event.name}</div>
+          <div class="list-item-subtitle">${event.date}</div>
+        </div>
+      </div>
+    `).join('');
+
     const upcomingContainer = document.getElementById('upcomingEventsContainer');
     if (upcomingContainer) {
-      upcomingContainer.innerHTML = '<div style="color: var(--text-muted);">No upcoming events</div>';
+      upcomingContainer.innerHTML = upcomingHtml;
       upcomingContainer.style.opacity = '1';
     }
 
@@ -651,9 +738,9 @@ async function loadBookings() {
   }
 }
 
-async function loadRentals() {
+async function loadTenants() {
   try {
-    const status = document.getElementById('rentalStatusFilter')?.value || '';
+    const status = document.getElementById('tenantStatusFilter')?.value || '';
     const endpoint = `/api/bookings?bookingType=rental${status ? `&status=${status}` : ''}`;
     const response = await fetch(`${API_BASE}${endpoint}`, {
       headers: {
@@ -662,9 +749,9 @@ async function loadRentals() {
     });
     const data = await response.json();
 
-    const rentals = data.data || [];
-    const html = rentals.length > 0
-      ? rentals.map(r => `
+    const tenants = data.data || [];
+    const html = tenants.length > 0
+      ? tenants.map(r => `
           <tr>
             <td><strong>${r.reference || r.id}</strong></td>
             <td>${r.guest_name}</td>
@@ -679,12 +766,12 @@ async function loadRentals() {
             </td>
           </tr>
         `).join('')
-      : '<tr><td colspan="8" style="text-align: center; padding: 32px;">No rentals found</td></tr>';
+      : '<tr><td colspan="8" style="text-align: center; padding: 32px;">No tenants found</td></tr>';
 
-    document.getElementById('rentalsTableBody').innerHTML = html;
+    document.getElementById('tenantsTableBody').innerHTML = html;
   } catch (err) {
-    console.error('Load rentals error:', err);
-    showToast('Failed to load rentals', '⚠️');
+    console.error('Load tenants error:', err);
+    showToast('Failed to load tenants', '⚠️');
   }
 }
 
@@ -848,7 +935,7 @@ async function handleBookingSubmit(e) {
       if (result.ok) {
         showToast('Booking updated successfully', '✓');
         closeBookingFormModal();
-        bookingType === 'bnb' ? loadBookings() : loadRentals();
+        bookingType === 'bnb' ? loadBookings() : loadTenants();
       } else {
         throw new Error(result.error || 'Failed to update booking');
       }
@@ -892,7 +979,7 @@ async function handleBookingSubmit(e) {
       if (result.ok) {
         showToast(`Booking created: ${result.data.reference}`, '✓');
         closeBookingFormModal();
-        bookingType === 'bnb' ? loadBookings() : loadRentals();
+        bookingType === 'bnb' ? loadBookings() : loadTenants();
       } else {
         throw new Error(result.error || 'Failed to create booking');
       }
@@ -922,8 +1009,8 @@ async function deleteBooking(bookingId) {
       // Reload current page
       if (state.currentPage === 'bookings') {
         loadBookings();
-      } else if (state.currentPage === 'rentals') {
-        loadRentals();
+      } else if (state.currentPage === 'tenants') {
+        loadTenants();
       }
     } else {
       throw new Error(result.error || 'Failed to delete booking');
@@ -1043,329 +1130,31 @@ async function loadAuditLog() {
   }
 }
 
+/**
+ * Load calendar data - delegates to calendarManager
+ * This is the entry point when user navigates to Calendar page
+ */
 async function loadCalendarData() {
-  // PANIC TEST - FORCE VISIBLE
-  const testDiv = document.getElementById('adminCalendar');
-  if (!testDiv) {
-    alert('❌ PANIC: adminCalendar div not found!');
-    console.error('❌ PANIC: #adminCalendar not found in DOM');
-    return;
-  }
-  
-  if (!window.FullCalendar) {
-    alert('❌ PANIC: FullCalendar library not loaded!');
-    console.error('❌ PANIC: FullCalendar not in window');
-    return;
-  }
-  
-  console.log('✅ PANIC TEST PASSED: adminCalendar div exists, FullCalendar loaded');
-  
   try {
-    console.log('[Calendar] Loading calendar data', { units: state.units.length, user: state.user.username });
-
-    // Wait for units to load if not already loaded
-    if (!state.units || state.units.length === 0) {
-      console.log('[Calendar] Units not loaded yet, loading...');
-      await loadUnits();
-    }
-
-    console.log('[Calendar] Units loaded:', state.units.length);
-
-    // Hide unit filter if not full access admin
-    const unitFilterContainer = document.getElementById('unitFilterContainer');
-    if (state.user.property) {
-      // Building-specific admin: hide filter
-      console.log('[Calendar] Building-specific admin, hiding unit filter');
-      unitFilterContainer.style.display = 'none';
-    } else {
-      // Full access admin: show filter
-      console.log('[Calendar] Full access admin, showing unit filter');
-      unitFilterContainer.style.display = 'flex';
-    }
-
-    // Populate unit selects
-    populateUnitSelects();
-
-    // Initialize or update calendar
-    console.log('[Calendar] Initializing FullCalendar...');
-    initCalendar();
-
-    // Fetch and render events for current month
-    const selectedUnitId = document.getElementById('unitSelectCal')?.value || '';
-    console.log('[Calendar] Fetching events for unit:', selectedUnitId || 'all');
-    await fetchAndRenderCalendarEvents(selectedUnitId);
-    
-    console.log('[Calendar] Calendar initialized successfully');
+    console.log('[Calendar] loadCalendarData() called, delegating to calendarManager.init()');
+    await calendarManager.init();
   } catch (err) {
-    console.error('[Calendar] Error loading calendar data:', err);
-    alert('❌ Error: ' + err.message);
+    console.error('[Calendar] Error in loadCalendarData:', err);
     showToast('Failed to load calendar', '⚠️');
   }
 }
 
-let calendarInstance = null;
 
-function initCalendar() {
-  const calendarEl = document.getElementById('adminCalendar');
-  if (!calendarEl) {
-    console.error('[Calendar] Calendar container #adminCalendar not found');
-    return;
-  }
 
-  // Destroy existing calendar if any
-  if (calendarInstance) {
-    console.log('[Calendar] Destroying existing calendar instance');
-    calendarInstance.destroy();
-  }
-
-  console.log('[Calendar] Creating new FullCalendar instance');
-  console.log('[Calendar] Checking available plugins:', {
-    DayGridPlugin: !!window.FullCalendarDayGrid,
-    TimeGridPlugin: !!window.FullCalendarTimeGrid,
-    ListPlugin: !!window.FullCalendarList,
-    InteractionPlugin: !!window.FullCalendarInteraction,
-    FullCalendarObj: typeof window.FullCalendar
-  });
-
-  // Try to get plugins from window
-  const plugins = [];
-  if (window.FullCalendarDayGrid) plugins.push(window.FullCalendarDayGrid);
-  if (window.FullCalendarTimeGrid) plugins.push(window.FullCalendarTimeGrid);
-  if (window.FullCalendarList) plugins.push(window.FullCalendarList);
-  if (window.FullCalendarInteraction) plugins.push(window.FullCalendarInteraction);
-  
-  console.log('[Calendar] Loaded', plugins.length, 'plugins');
-
-  // Create new calendar instance
-  try {
-    calendarInstance = new window.FullCalendar.Calendar(calendarEl, {
-      plugins: plugins.length > 0 ? plugins : [],
-      initialView: 'dayGridMonth',
-      headerToolbar: {
-        left: 'prev,next today',
-        center: 'title',
-        right: ''
-      },
-      height: 'auto',
-      contentHeight: 'auto',
-      events: async function(info, successCallback, failureCallback) {
-        try {
-          console.log('[Calendar] FullCalendar requesting events for range:', info.startStr, 'to', info.endStr);
-          const selectedUnitId = document.getElementById('unitSelectCal')?.value || '';
-          const events = await buildCalendarEvents(selectedUnitId, info.startStr, info.endStr);
-          
-          if (!Array.isArray(events)) {
-            console.error('[Calendar] ERROR: events is not an array!', typeof events, events);
-            failureCallback(new Error('Events must be an array'));
-            return;
-          }
-          
-          console.log('[Calendar] Successfully built', events.length, 'events, calling successCallback');
-          successCallback(events);
-        } catch (err) {
-          console.error('[Calendar] Exception in events callback:', err, err.stack);
-          failureCallback(err);
-        }
-      },
-      eventClick: function(info) {
-        handleCalendarEventClick(info);
-      },
-      datesSet: function(info) {
-        console.log('[Calendar] Dates changed:', info.startStr, 'to', info.endStr);
-      }
-    });
-    
-    console.log('[Calendar] FullCalendar instance created successfully, rendering...');
-    calendarInstance.render();
-    console.log('[Calendar] FullCalendar rendered successfully');
-  } catch (err) {
-    console.error('[Calendar] CRITICAL ERROR creating FullCalendar:', err, err.stack);
-    alert('❌ FullCalendar Error: ' + err.message);
-    throw err;
-  }
-}
-
-async function buildCalendarEvents(selectedUnitId, startStr, endStr) {
-  try {
-    console.log('[Calendar Events] Building events, selectedUnitId:', selectedUnitId, 'dateRange:', startStr, '-', endStr);
-
-    // Determine which units to fetch
-    let unitIds = [];
-    
-    if (state.user.property) {
-      // Building-specific admin: only show their property's units
-      unitIds = state.units
-        .filter(u => u.property_id === state.user.property)
-        .map(u => u.id);
-      console.log('[Calendar Events] Building admin, accessible units:', unitIds);
-    } else if (selectedUnitId && selectedUnitId !== '') {
-      // Full access admin with specific unit selected
-      unitIds = [parseInt(selectedUnitId)];
-      console.log('[Calendar Events] Full access, filtered to unit:', unitIds);
-    } else {
-      // Full access admin showing all units
-      unitIds = state.units.map(u => u.id);
-      console.log('[Calendar Events] Full access, all units:', unitIds);
-    }
-
-    const events = [];
-
-    // Use provided date range from FullCalendar, or fall back to current month
-    let startDate, endDate;
-    if (startStr && endStr) {
-      // Extract just the date portion (YYYY-MM-DD) from ISO strings
-      startDate = startStr.split('T')[0];
-      endDate = endStr.split('T')[0];
-      console.log('[Calendar Events] Using FullCalendar date range:', startDate, 'to', endDate);
-    } else {
-      // Fallback to current month if dates not provided
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const formatDate = (d) => d.toISOString().split('T')[0];
-      startDate = formatDate(startOfMonth);
-      endDate = formatDate(endOfMonth);
-      console.log('[Calendar Events] Using fallback current month:', startDate, 'to', endDate);
-    }
-    
-    console.log('[Calendar Events] Date range:', startDate, 'to', endDate);
-
-    // Fetch bookings - without status filter to get all bookings
-    console.log('[Calendar Events] Fetching bookings...');
-    const bookingsData = await apiCall(`/bookings?startDate=${startDate}&endDate=${endDate}`);
-    console.log('[Calendar Events] Bookings API response:', bookingsData);
-    
-    if (!bookingsData || !bookingsData.ok) {
-      console.error('[Calendar Events] Bookings API error:', bookingsData?.error || 'Unknown error');
-      return [];
-    }
-    
-    const bookings = bookingsData.data || [];
-    console.log('[Calendar Events] Got', bookings.length, 'bookings from API');
-    if (bookings.length > 0) {
-      console.log('[Calendar Events] Sample booking:', JSON.stringify(bookings[0], null, 2));
-    }
-
-    // Filter bookings by selected unit(s)
-    const filteredBookings = bookings.filter(b => {
-      const unitIdNum = parseInt(b.unit_id);
-      const matches = unitIds.includes(unitIdNum);
-      return matches;
-    });
-    console.log('[Calendar Events] Filtered to', filteredBookings.length, 'bookings for accessible units');
-
-    // Transform bookings to FullCalendar events
-    filteredBookings.forEach(booking => {
-      try {
-        const unit = state.units.find(u => u.id === parseInt(booking.unit_id));
-        const unitName = unit ? (unit.name || unit.unit_id) : `Unit ${booking.unit_id}`;
-        
-        // Convert ISO date to YYYY-MM-DD format
-        const checkinDate = booking.checkin_date.split('T')[0];
-        const checkoutDate = booking.checkout_date.split('T')[0];
-
-        const event = {
-          id: `booking-${booking.id}`,
-          title: `${unitName}: ${booking.guest_name}`,
-          start: checkinDate,
-          end: checkoutDate,
-          backgroundColor: '#3B82F6',
-          borderColor: '#2563EB',
-          classNames: ['fc-event-booked'],
-          extendedProps: {
-            type: 'booking',
-            bookingData: booking
-          }
-        };
-        console.log('[Calendar Events] Created booking event:', JSON.stringify(event, null, 2));
-        events.push(event);
-      } catch (err) {
-        console.error('[Calendar Events] Error transforming booking:', err, booking);
-      }
-    });
-
-    // Fetch blocked dates
-    console.log('[Calendar Events] Fetching blocked dates...');
-    const blockedData = await apiCall(`/blocked-dates?startDate=${startDate}&endDate=${endDate}`);
-    console.log('[Calendar Events] Blocked dates API response:', blockedData);
-    
-    if (!blockedData || !blockedData.ok) {
-      console.error('[Calendar Events] Blocked dates API error:', blockedData?.error || 'Unknown error');
-      // Continue anyway, blocked dates are optional
-    } else {
-      const blockedDates = blockedData.data || [];
-      console.log('[Calendar Events] Got', blockedDates.length, 'blocked dates from API');
-
-      // Filter blocked dates by selected unit(s)
-      const filteredBlocked = blockedDates.filter(b => unitIds.includes(parseInt(b.unit_id)));
-      console.log('[Calendar Events] Filtered to', filteredBlocked.length, 'blocked dates for accessible units');
-
-      // Transform blocked dates to FullCalendar events
-      filteredBlocked.forEach(block => {
-        try {
-          const unit = state.units.find(u => u.id === parseInt(block.unit_id));
-          const unitName = unit ? (unit.name || unit.unit_id) : `Unit ${block.unit_id}`;
-          
-          // Handle both start_date/end_date and startDate/endDate field names
-          const blockStartDate = (block.start_date || block.startDate).split('T')[0];
-          const blockEndDate = (block.end_date || block.endDate).split('T')[0];
-
-          const event = {
-            id: `block-${block.id}`,
-            title: `${unitName}: Blocked`,
-            start: blockStartDate,
-            end: blockEndDate,
-            backgroundColor: '#9CA3AF',
-            borderColor: '#6B7280',
-            classNames: ['fc-event-blocked'],
-            display: 'block',
-            extendedProps: {
-              type: 'blocked',
-              blockData: block
-            }
-          };
-          console.log('[Calendar Events] Created blocked event:', JSON.stringify(event, null, 2));
-          events.push(event);
-        } catch (err) {
-          console.error('[Calendar Events] Error transforming blocked date:', err, block);
-        }
-      });
-    }
-
-    console.log('[Calendar Events] Total events built:', events.length);
-    console.log('[Calendar Events] Final events array:', JSON.stringify(events, null, 2));
-    return events;
-  } catch (err) {
-    console.error('[Calendar Events] CRITICAL Error building calendar events:', err, err.stack);
-    showToast('Error fetching calendar events: ' + err.message, '⚠️');
-    return [];
-  }
-}
-
-async function fetchAndRenderCalendarEvents(selectedUnitId) {
-  if (calendarInstance) {
-    // Get current month range for initial load
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const formatDate = (d) => d.toISOString().split('T')[0];
-    const events = await buildCalendarEvents(selectedUnitId, formatDate(startOfMonth), formatDate(endOfMonth));
-    calendarInstance.removeAllEvents();
-    events.forEach(event => calendarInstance.addEvent(event));
-  }
-}
-
-function handleUnitFilterChange() {
+async function handleUnitFilterChange() {
   console.log('[Calendar Filter] Unit filter changed');
-  const selectedUnitId = document.getElementById('unitSelectCal').value;
-  console.log('[Calendar Filter] Selected unit ID:', selectedUnitId);
-  fetchAndRenderCalendarEvents(selectedUnitId);
+  await calendarManager.refreshCalendar();
 }
 
 function switchCalendarView(viewType) {
   console.log('[Calendar View] Switching to view:', viewType);
-  if (calendarInstance) {
-    calendarInstance.changeView(viewType);
+  if (calendarManager?.calendar) {
+    calendarManager.calendar.changeView(viewType);
     
     // Update active button
     document.querySelectorAll('.view-buttons button').forEach(btn => {
@@ -1373,39 +1162,7 @@ function switchCalendarView(viewType) {
     });
     document.querySelector(`.view-buttons button[data-view="${viewType}"]`)?.classList.add('active');
   } else {
-    console.error('[Calendar View] calendarInstance is null!');
-  }
-}
-
-function handleCalendarEventClick(info) {
-  const eventData = info.event.extendedProps;
-
-  if (eventData.type === 'booking') {
-    const booking = eventData.bookingData;
-    const message = `
-Booking Details:
-Reference: ${booking.reference}
-Guest: ${booking.guest_name}
-Phone: ${booking.guest_phone}
-Check-in: ${booking.checkin_date}
-Check-out: ${booking.checkout_date}
-Nights: ${booking.nights}
-Total: KES ${booking.total_amount_kes}
-Status: ${booking.status}
-    `;
-    showToast(`View details: ${booking.reference}`, '📋');
-    // Can expand to show modal with full details
-    console.log('Booking:', booking);
-  } else if (eventData.type === 'blocked') {
-    const block = eventData.blockData;
-    const message = `
-Blocked Period:
-From: ${block.start_date}
-To: ${block.end_date}
-Reason: ${block.reason || 'Maintenance'}
-    `;
-    showToast(`Blocked: ${block.reason || 'Maintenance'}`, '🔒');
-    console.log('Blocked:', block);
+    console.error('[Calendar View] calendarManager.calendar is not initialized');
   }
 }
 

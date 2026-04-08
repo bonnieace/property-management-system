@@ -12,6 +12,7 @@
   <link href="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.10/index.global.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6.1.10/index.global.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/@fullcalendar/list@6.1.10/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --cream: #F5F0E8;
@@ -393,12 +394,35 @@
       padding: 12px 24px;
       color: rgba(255,255,255,.6);
       text-decoration: none;
-      transition: all .2s;
+      transition: all .3s cubic-bezier(.4,0,.2,1);
       cursor: pointer;
       border-left: 3px solid transparent;
+      position: relative;
     }
 
-    .admin-drawer .nav-link:hover,
+    .admin-drawer .nav-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background: rgba(255,255,255,.05);
+      width: 0;
+      transition: width .3s cubic-bezier(.4,0,.2,1);
+      z-index: -1;
+    }
+
+    .admin-drawer .nav-link:hover {
+      color: #fff;
+      background: rgba(255,255,255,.05);
+      border-left-color: var(--earth-light);
+      transform: translateX(4px);
+    }
+
+    .admin-drawer .nav-link:hover::before {
+      width: 100%;
+    }
+
     .admin-drawer .nav-link.active {
       color: #fff;
       background: rgba(255,255,255,.05);
@@ -696,12 +720,36 @@
       padding: 12px 24px;
       color: rgba(255,255,255,.6);
       text-decoration: none;
-      transition: all .2s;
+      transition: all .3s cubic-bezier(.4,0,.2,1);
       cursor: pointer;
       border-left: 3px solid transparent;
+      position: relative;
     }
 
-    .nav-link:hover, .nav-link.active {
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background: rgba(255,255,255,.05);
+      width: 0;
+      transition: width .3s cubic-bezier(.4,0,.2,1);
+      z-index: -1;
+    }
+
+    .nav-link:hover {
+      color: #fff;
+      background: rgba(255,255,255,.05);
+      border-left-color: var(--earth-light);
+      transform: translateX(4px);
+    }
+
+    .nav-link:hover::before {
+      width: 100%;
+    }
+
+    .nav-link.active {
       color: #fff;
       background: rgba(255,255,255,.05);
       border-left-color: var(--earth-light);
@@ -797,12 +845,13 @@
     .form-group select {
       width: 100%;
       padding: 13px 16px;
-      border: 1px solid var(--border-strong);
+      border: 1.5px solid var(--border-strong);
       border-radius: var(--radius);
       font-family: var(--font-body);
       font-size: .9rem;
       outline: none;
-      transition: all .2s;
+      transition: all .3s cubic-bezier(.4,0,.2,1);
+      background: #fff;
     }
 
     /* Mobile: Larger input padding for touch */
@@ -819,7 +868,8 @@
     .form-group textarea:focus,
     .form-group select:focus {
       border-color: var(--earth);
-      box-shadow: 0 0 0 3px rgba(139,111,71,.1);
+      box-shadow: 0 0 0 4px rgba(139,111,71,.15);
+      transform: translateY(-2px);
     }
 
     .error-msg {
@@ -845,7 +895,7 @@
       font-size: .9rem;
       font-weight: 500;
       cursor: pointer;
-      transition: all .3s;
+      transition: all .3s cubic-bezier(.4,0,.2,1);
       text-decoration: none;
       border: none;
       outline: none;
@@ -853,6 +903,32 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255,255,255,.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width .6s, height .6s;
+      z-index: 1;
+    }
+
+    .btn:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    .btn span, .btn svg {
+      position: relative;
+      z-index: 2;
     }
 
     /* Mobile: Larger touch targets */
@@ -873,8 +949,12 @@
 
     .btn-primary:hover {
       background: var(--earth-dark);
-      transform: translateY(-1px);
-      box-shadow: 0 8px 24px rgba(139,111,71,.3);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(139,111,71,.3);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
     }
 
     /* ─── PAGES ─── */
@@ -921,6 +1001,15 @@
       font-family: var(--font-display);
       font-size: 1.8rem;
       font-weight: 400;
+      background: linear-gradient(135deg, var(--charcoal) 0%, var(--earth) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      transition: all .3s ease;
+    }
+
+    .section-title:hover {
+      transform: translateX(4px);
     }
 
     @media (max-width: 480px) {
@@ -952,6 +1041,9 @@
     .btn-secondary:hover {
       border-color: var(--earth);
       color: var(--earth);
+      background: rgba(139,111,71,.05);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(139,111,71,.15);
     }
 
     .btn-rust {
@@ -961,6 +1053,8 @@
 
     .btn-rust:hover {
       background: #A3501F;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(196,98,45,.25);
     }
 
     /* Icon buttons */
@@ -973,14 +1067,14 @@
       justify-content: center;
       padding: 6px;
       color: var(--earth);
-      transition: all .2s;
+      transition: all .3s cubic-bezier(.4,0,.2,1);
       border-radius: 6px;
     }
 
     .btn-icon:hover {
       background: rgba(139, 111, 71, 0.1);
       color: var(--earth-dark);
-      transform: scale(1.1);
+      transform: scale(1.15) rotate(5deg);
     }
 
     .btn-icon svg {
@@ -992,14 +1086,22 @@
     .card {
       background: #fff;
       border-radius: var(--radius-lg);
-      border: 1px solid var(--border);
-      padding: 24px;
+      border: 1px solid rgba(139,111,71,.08);
+      padding: 28px;
       margin-bottom: 24px;
+      box-shadow: 0 4px 20px rgba(28,26,23,.06);
+      transition: all .4s cubic-bezier(.4,0,.2,1);
+      backdrop-filter: blur(8px);
+    }
+
+    .card:hover {
+      box-shadow: 0 12px 40px rgba(28,26,23,.12);
+      border-color: var(--earth-light);
     }
 
     @media (max-width: 480px) {
       .card {
-        padding: 16px;
+        padding: 20px;
         margin-bottom: 16px;
       }
     }
@@ -1008,6 +1110,29 @@
       font-weight: 600;
       margin-bottom: 16px;
       font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card-title-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--earth) 0%, var(--earth-light) 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.1rem;
+    }
+
+    .card-title-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
     }
 
     /* ─── TABLES ─── */
@@ -1079,7 +1204,10 @@
       }
     }
 
-    tr:hover td { background: rgba(139,111,71,.02); }
+    tr:hover td { 
+      background: rgba(139,111,71,.04);
+      transition: all .2s ease;
+    }
 
     /* Ensure proper wrapping for action cells */
     td:last-child {
@@ -1108,16 +1236,317 @@
     .badge-failed { background: rgba(196,98,45,.2); color: var(--rust); }
     .badge-cancelled { background: rgba(185,28,28,.2); color: #991B1B; }
 
+    /* ─── MODERN DASHBOARD ELEMENTS ─── */
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes countUp {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
     .stat-card {
-      background: linear-gradient(135deg, var(--cream) 0%, rgba(139,111,71,.05) 100%);
+      animation: slideUp .6s cubic-bezier(.4,0,.2,1) forwards;
+    }
+
+    .stat-card:nth-child(2) { animation-delay: .1s; }
+    .stat-card:nth-child(3) { animation-delay: .2s; }
+    .stat-card:nth-child(4) { animation-delay: .3s; }
+
+    /* ─── PROGRESS BAR ─── */
+    .progress-bar-container {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin: 12px 0;
+    }
+
+    .progress-bar-label {
+      font-size: .8rem;
+      min-width: 100px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .progress-bar-track {
+      flex: 1;
+      height: 8px;
+      background: rgba(139,111,71,.1);
+      border-radius: 99px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--earth) 0%, var(--earth-light) 100%);
+      border-radius: 99px;
+      transition: width .5s cubic-bezier(.4,0,.2,1);
+      position: relative;
+      box-shadow: 0 2px 8px rgba(139,111,71,.3);
+    }
+
+    .progress-bar-value {
+      font-size: .8rem;
+      min-width: 40px;
+      text-align: right;
+      font-weight: 600;
+      color: var(--earth);
+    }
+
+    /* ─── LIST WITH ICONS ─── */
+    .modern-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(139,111,71,.03);
+      border-radius: var(--radius);
+      transition: all .3s ease;
+      border-left: 3px solid transparent;
+    }
+
+    .list-item:hover {
+      background: rgba(139,111,71,.06);
+      border-left-color: var(--earth);
+      transform: translateX(4px);
+    }
+
+    .list-item-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, rgba(139,111,71,.2) 0%, rgba(196,168,130,.1) 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--earth);
+      flex-shrink: 0;
+      font-size: 1.1rem;
+    }
+
+    .list-item-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .list-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .list-item-title {
+      font-weight: 500;
+      font-size: .9rem;
+      color: var(--charcoal);
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .list-item-subtitle {
+      font-size: .8rem;
+      color: var(--text-muted);
+    }
+
+    .list-item-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .list-item-value {
+      font-weight: 600;
+      font-size: .95rem;
+      color: var(--earth);
+      min-width: 60px;
+      text-align: right;
+    }
+
+    /* ─── GRID LAYOUT ─── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    @media (max-width: 480px) {
+      .dashboard-grid {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 16px;
+        margin-bottom: 24px;
+        padding-bottom: 8px;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(139,111,71,.3) transparent;
+      }
+
+      .dashboard-grid::-webkit-scrollbar {
+        height: 4px;
+      }
+
+      .dashboard-grid::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .dashboard-grid::-webkit-scrollbar-thumb {
+        background: rgba(139,111,71,.3);
+        border-radius: 2px;
+      }
+
+      .dashboard-grid > .stat-card {
+        flex: 0 0 calc(100vw - 48px);
+        min-width: calc(100vw - 48px);
+      }
+    }
+
+    .dashboard-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 767px) {
+      .dashboard-grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ─── CHART CONTAINER ─── */
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin-top: 20px;
+    }
+
+    /* ─── TIME INTERVAL SELECTOR ─── */
+    .interval-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    .interval-btn {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: .85rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: all .3s ease;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .interval-btn:hover {
+      color: var(--earth);
+    }
+
+    .interval-btn.active {
+      color: var(--earth);
+      border-bottom-color: var(--earth);
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,.95) 100%);
       border-radius: var(--radius-lg);
-      padding: 24px;
-      border: 1px solid var(--border);
+      padding: 28px;
+      border: 1px solid rgba(139,111,71,.1);
+      position: relative;
+      overflow: hidden;
+      transition: all .4s cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 4px 20px rgba(28,26,23,.08);
+      backdrop-filter: blur(8px);
+      transform: perspective(1000px) rotateX(2deg) rotateZ(-1deg) skewY(-0.5deg);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(139,111,71,.08) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .stat-card:hover {
+      transform: perspective(1000px) rotateX(4deg) rotateZ(-2deg) skewY(-1deg) translateY(-8px);
+      box-shadow: 0 12px 40px rgba(28,26,23,.15);
+      border-color: var(--earth-light);
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--earth) 0%, var(--earth-light) 100%);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.6rem;
+      margin-bottom: 16px;
+      transition: all .3s ease;
+    }
+
+    .stat-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .stat-card:hover .stat-icon {
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 8px 16px rgba(139,111,71,.3);
     }
 
     @media (max-width: 480px) {
       .stat-card {
-        padding: 16px;
+        padding: 20px;
+      }
+
+      .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.3rem;
+        margin-bottom: 12px;
       }
     }
 
@@ -1125,6 +1554,9 @@
       font-size: .85rem;
       color: var(--text-muted);
       margin-bottom: 8px;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      font-weight: 500;
     }
 
     @media (max-width: 480px) {
@@ -1135,15 +1567,41 @@
 
     .stat-value {
       font-family: var(--font-display);
-      font-size: 2.4rem;
-      font-weight: 400;
+      font-size: 2.8rem;
+      font-weight: 300;
       color: var(--earth);
+      line-height: 1;
+      margin-bottom: 12px;
+      transition: all .3s ease;
+    }
+
+    .stat-card:hover .stat-value {
+      color: var(--earth-dark);
     }
 
     @media (max-width: 480px) {
       .stat-value {
-        font-size: 1.8rem;
+        font-size: 2rem;
       }
+    }
+
+    .stat-change {
+      font-size: .8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-change.positive {
+      color: var(--sage);
+    }
+
+    .stat-change.negative {
+      color: var(--rust);
+    }
+
+    .stat-change-arrow {
+      font-size: 1rem;
     }
 
     /* ─── FORM GRID ─── */
@@ -2336,21 +2794,247 @@
       }
     }
 
-    /* Responsive unit filter container */
-    #unitFilterContainer {
-      display: flex !important;
-      flex-direction: column !important;
+    /* unitFilterContainer styles now handled by .filter-toolbar > .toolbar-left */
+
+    /* ─── FILTER TOOLBAR COMPONENT ─── */
+    /* Centralized, responsive search/filter toolbar */
+    .filter-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--spacing-md);
+      margin-bottom: 28px;
+      width: 100%;
     }
 
-    @media (min-width: 768px) {
-      #unitFilterContainer {
-        flex-direction: row !important;
+    .toolbar-left {
+      display: flex;
+      gap: var(--spacing-md);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-center {
+      display: flex;
+      gap: var(--spacing-md);
+      align-items: center;
+      flex: 1;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .toolbar-right {
+      display: flex;
+      gap: var(--spacing-md);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Desktop: All controls in single row, balanced distribution */
+    @media (min-width: 1024px) {
+      .filter-toolbar {
+        justify-content: space-between;
+        flex-wrap: nowrap;
+      }
+
+      .toolbar-left {
+        flex-wrap: nowrap;
+      }
+
+      .toolbar-center {
+        justify-content: center;
+        flex: 1;
+      }
+
+      .toolbar-right {
+        flex-wrap: nowrap;
       }
     }
 
-    @media (max-width: 480px) {
-      #unitFilterContainer select {
-        width: 100% !important;
+    /* Tablet: Two-row layout or flex-wrap with better responsiveness */
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .filter-toolbar {
+        justify-content: flex-start;
+        gap: var(--spacing-lg);
+      }
+
+      .toolbar-left {
+        order: 1;
+      }
+
+      .toolbar-center {
+        order: 3;
+        flex-basis: 100%;
+        justify-content: flex-start;
+      }
+
+      .toolbar-right {
+        order: 2;
+      }
+    }
+
+    /* Mobile: Vertical stack, full-width inputs */
+    @media (max-width: 767px) {
+      .filter-toolbar {
+        flex-direction: column;
+        gap: var(--spacing-md);
+      }
+
+      .toolbar-left {
+        width: 100%;
+        gap: var(--spacing-sm);
+      }
+
+      .toolbar-center {
+        width: 100%;
+        gap: var(--spacing-sm);
+        flex-direction: column;
+      }
+
+      .toolbar-right {
+        width: 100%;
+        gap: var(--spacing-sm);
+        flex-direction: column;
+      }
+
+      /* Full-width buttons on mobile */
+      .toolbar-left .btn,
+      .toolbar-right .btn {
+        flex: 1;
+        min-width: 140px;
+      }
+    }
+
+    /* ─── TOOLBAR FORM CONTROLS ─── */
+    /* Fix for responsive form controls in toolbar */
+    .filter-toolbar input,
+    .filter-toolbar select,
+    .filter-toolbar textarea {
+      font-size: 1rem; /* Prevent iOS zoom on input focus */
+      padding: 12px 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      font-family: var(--font-body);
+      background: var(--warm-white);
+      color: var(--charcoal);
+      outline: none;
+      transition: all 0.2s;
+      min-height: var(--btn-height-default);
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .filter-toolbar input:focus,
+    .filter-toolbar select:focus,
+    .filter-toolbar textarea:focus {
+      border-color: var(--earth);
+      box-shadow: 0 0 0 3px rgba(139,111,71,0.1);
+    }
+
+    /* Desktop: Flexible input widths */
+    @media (min-width: 1024px) {
+      .filter-toolbar input,
+      .filter-toolbar select,
+      .filter-toolbar textarea {
+        flex: 0 1 auto;
+        min-width: 150px;
+      }
+
+      .filter-toolbar input[type="search"],
+      .filter-toolbar input[type="text"] {
+        min-width: 200px;
+      }
+    }
+
+    /* Tablet: More flexible */
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .filter-toolbar input,
+      .filter-toolbar select,
+      .filter-toolbar textarea {
+        flex: 0 1 auto;
+        min-width: 140px;
+      }
+
+      .toolbar-center input[type="search"],
+      .toolbar-center input[type="text"] {
+        min-width: 180px;
+      }
+    }
+
+    /* Mobile: Full width inputs */
+    @media (max-width: 767px) {
+      .filter-toolbar input,
+      .filter-toolbar select,
+      .filter-toolbar textarea {
+        width: 100%;
+        min-width: unset;
+        min-height: var(--btn-height-mobile);
+      }
+
+      /* Ensure proper spacing for labels */
+      .filter-toolbar label {
+        display: block;
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+    }
+
+    /* ─── TOOLBAR BUTTONS ─── */
+    .filter-toolbar .btn {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 1024px) {
+      .filter-toolbar .btn {
+        padding: 13px 24px;
+        min-height: var(--btn-height-default);
+      }
+    }
+
+    @media (max-width: 767px) {
+      .filter-toolbar .btn {
+        padding: 14px 20px;
+        min-height: var(--btn-height-mobile);
+      }
+
+      /* Stack buttons in toolbar sections on mobile */
+      .toolbar-left .btn {
+        flex: 1;
+      }
+
+      .toolbar-right .btn {
+        flex: 1;
+      }
+    }
+
+    /* ─── TOOLBAR FILTERS BADGE ─── */
+    .filter-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--rust);
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      margin-left: 4px;
+    }
+
+    /* ─── TOOLBAR DIVIDERS ─── */
+    .toolbar-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+
+    @media (max-width: 767px) {
+      .toolbar-divider {
+        display: none;
       }
     }
   </style>
@@ -2437,10 +3121,6 @@
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6M3 3h18M3 10h18"/></svg>
           <span>Access Control</span>
         </a> -->
-        <a class="nav-link" id="adminUsersNavLink" style="display: none;" onclick="showPage('admin-users')">
-          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-          <span>Admin Users</span>
-        </a>
       </div>
 
       <div class="nav-section">
@@ -2449,9 +3129,9 @@
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 2h11a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-12A2.5 2.5 0 0 1 6.5 2m5 4v3m-3-3v3"/></svg>
           <span>Bookings</span>
         </a>
-        <a class="nav-link" onclick="showPage('rentals')">
+        <a class="nav-link" onclick="showPage('tenants')">
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/><path d="M12 7v5l3 2"/></svg>
-          <span>Rentals</span>
+          <span>Tenants</span>
         </a>
         <!-- <a class="nav-link" onclick="showPage('waitlist')">
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -2461,6 +3141,14 @@
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           <span>Audit Log</span>
         </a> -->
+      </div>
+
+      <div class="nav-section" id="adminSidebarSection" style="display: none;">
+        <div class="nav-section-title">Administration</div>
+        <a class="nav-link" onclick="showPage('admin-users')">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          <span>Admin Users</span>
+        </a>
       </div>
 
       <div class="nav-section" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,.1); padding-top: 24px;">
@@ -2495,55 +3183,154 @@
 
       <!-- DASHBOARD PAGE -->
       <div id="dashboardPage" class="page active">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 32px;">
+        <!-- KPI Cards -->
+        <div class="dashboard-grid">
           <div class="stat-card">
-            <div class="stat-label">Bookings This Month</div>
-            <div class="stat-value" id="statMonthlyBookings">0</div>
+            <div class="stat-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <div class="stat-label">B&B Bookings</div>
+            <div class="stat-value" id="statBnbBookings">0</div>
+            <div class="stat-change positive">
+              <span class="stat-change-arrow">↑</span>
+              <span id="statBnbChangePercent">0%</span>
+            </div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Total Revenue (KES)</div>
-            <div class="stat-value" id="statRevenue">0</div>
+            <div class="stat-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a4 4 0 0 0 0 8h5a4 4 0 0 1 0 8H6"/></svg>
+            </div>
+            <div class="stat-label">B&B Revenue (KES)</div>
+            <div class="stat-value" id="statBnbRevenue">0</div>
+            <div class="stat-change positive">
+              <span class="stat-change-arrow">↑</span>
+              <span id="statBnbRevenuePercent">0%</span>
+            </div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Waitlist Entries</div>
-            <div class="stat-value" id="statWaitlist">0</div>
+            <div class="stat-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 2h11a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-12A2.5 2.5 0 0 1 6.5 2m5 4v3m-3-3v3"/></svg>
+            </div>
+            <div class="stat-label">Rental Bookings</div>
+            <div class="stat-value" id="statRentalBookings">0</div>
+            <div class="stat-change">
+              <span id="rentalStatus">Active</span>
+            </div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Active Pricing Rules</div>
-            <div class="stat-value" id="statPricingRules">0</div>
+            <div class="stat-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="stat-label">Rental Revenue (KES)</div>
+            <div class="stat-value" id="statRentalRevenue">0</div>
+            <div class="stat-change">
+              <span id="rentalRevenueStatus">Tracked</span>
+            </div>
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <!-- Charts & Details Row -->
+        <div class="dashboard-grid-2">
+          <!-- Revenue Chart -->
           <div class="card">
-            <div class="card-title">Recent Bookings</div>
-            <div id="recentBookingsContainer" style="font-size: .85rem; color: var(--text-muted);">Loading...</div>
+            <div class="card-title">
+              <div class="card-title-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a4 4 0 0 0 0 8h5a4 4 0 0 1 0 8H6"/></svg>
+              </div>
+              Revenue Trend
+            </div>
+            <div class="interval-buttons" style="display: flex; gap: 8px; margin-bottom: 16px; padding-bottom: 0; border-bottom: none;">
+              <button class="interval-btn active" onclick="updateRevenueChart('week')">Week</button>
+              <button class="interval-btn" onclick="updateRevenueChart('month')">Month</button>
+              <button class="interval-btn" onclick="updateRevenueChart('year')">Year</button>
+            </div>
+            <div class="chart-container">
+              <canvas id="revenueChart"></canvas>
+            </div>
           </div>
+
+          <!-- Occupancy Overview -->
           <div class="card">
-            <div class="card-title">Upcoming Events</div>
-            <div id="upcomingEventsContainer" style="font-size: .85rem; color: var(--text-muted);">Loading...</div>
+            <div class="card-title">
+              <div class="card-title-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </div>
+              Occupancy Overview
+            </div>
+            <div class="modern-list" id="occupancyContainer">
+              <div class="list-item">
+                <div class="list-item-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </div>
+                <div class="list-item-content">
+                  <div class="list-item-title">Loading occupancy data...</div>
+                  <div class="progress-bar-container">
+                    <div class="progress-bar-track">
+                      <div class="progress-bar-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="progress-bar-value">0%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity Row -->
+        <div class="dashboard-grid-2">
+          <!-- Recent Bookings -->
+          <div class="card">
+            <div class="card-title">
+              <div class="card-title-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 2h11a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-12A2.5 2.5 0 0 1 6.5 2m5 4v3m-3-3v3"/></svg>
+              </div>
+              Recent Bookings
+            </div>
+            <div id="recentBookingsContainer" class="modern-list" style="font-size: .85rem; color: var(--text-muted);">
+              <div class="list-item">
+                <div class="list-item-icon">🔔</div>
+                <div class="list-item-content">
+                  <div class="list-item-title">Loading bookings...</div>
+                  <div class="list-item-subtitle">Please wait</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upcoming Events -->
+          <div class="card">
+            <div class="card-title">
+              <div class="card-title-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              Upcoming Events
+            </div>
+            <div id="upcomingEventsContainer" class="modern-list" style="font-size: .85rem; color: var(--text-muted);">
+              <div class="list-item">
+                <div class="list-item-icon">🔔</div>
+                <div class="list-item-content">
+                  <div class="list-item-title">Loading events...</div>
+                  <div class="list-item-subtitle">Please wait</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- CALENDAR MANAGER PAGE -->
       <div id="calendarManagerPage" class="page">
-        <div class="content-header">  </div>
-        
         <div class="card">
-          
-          <div class="calendar-controls">
-            <div style="display: flex; align-items: center; gap: 8px;" id="unitFilterContainer">
-              <label>Select Unit:</label>
+          <div class="filter-toolbar" style="margin-bottom: 20px;">
+            <div class="toolbar-left" id="unitFilterContainer">
+              <label style="white-space: nowrap; margin-right: 8px;">Select Unit:</label>
               <select id="unitSelectCal" onchange="handleUnitFilterChange()">
                 <option value="">All Units</option>
               </select>
             </div>
-            <div style="margin-left: auto; display: flex; gap: 12px; flex-wrap: wrap;">
-              <div>
-                <label>View:</label>
-              </div>
-              <div class="view-buttons">
+            <div class="toolbar-right">
+              <label style="white-space: nowrap; margin-right: 8px;">View:</label>
+              <div class="view-buttons" style="display: flex; gap: 8px;">
                 <button onclick="switchCalendarView('dayGridMonth')" class="active" data-view="dayGridMonth">Month</button>
                 <button onclick="switchCalendarView('timeGridWeek')" data-view="timeGridWeek">Week</button>
                 <button onclick="switchCalendarView('timeGridDay')" data-view="timeGridDay">Day</button>
@@ -2573,10 +3360,12 @@
 
       <!-- PROPERTIES PAGE -->
       <div id="propertiesPage" class="page">
-        <div class="content-header">
-          <div style="display: flex; gap: 12px;">
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
             <button class="btn btn-primary btn-sm" onclick="openAddPropertyModal()">+ Add Property</button>
-            <select id="propertyStatusFilter" onchange="filterProperties()" style="padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius);">
+          </div>
+          <div class="toolbar-right">
+            <select id="propertyStatusFilter" onchange="filterProperties()">
               <option value="">All Properties</option>
               <option value="active">Active Only</option>
               <option value="inactive">Inactive Only</option>
@@ -2606,19 +3395,21 @@
 
       <!-- UNITS PAGE -->
       <div id="unitsPage" class="page">
-        <div class="content-header">
-          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
             <button class="btn btn-primary btn-sm" onclick="openAddUnitModal()">+ Add Unit</button>
-            <select id="unitPropertyFilter" onchange="filterUnits()" style="padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 0.9em;">
+          </div>
+          <div class="toolbar-right">
+            <select id="unitPropertyFilter" onchange="filterUnits()">
               <option value="">All Properties</option>
             </select>
-            <select id="unitStatusFilter" onchange="filterUnits()" style="padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 0.9em;">
+            <select id="unitStatusFilter" onchange="filterUnits()">
               <option value="">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="maintenance">Maintenance</option>
             </select>
-            <select id="unitTypeFilter" onchange="filterUnits()" style="padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 0.9em;">
+            <select id="unitTypeFilter" onchange="filterUnits()">
               <option value="">All Types</option>
               <option value="bnb">B&B</option>
               <option value="bedsit">Bedsit</option>
@@ -2698,11 +3489,13 @@
 
       <!-- TANK MANAGER PAGE -->
       <div id="tankManagerPage" class="page">
-        <div class="content-header">
-          <button class="btn btn-primary btn-sm" onclick="openAddTankModal()" style="gap: 8px;">
-            <svg style="width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Tank
-          </button>
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-primary btn-sm" onclick="openAddTankModal()" style="gap: 8px;">
+              <svg style="width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Tank
+            </button>
+          </div>
         </div>
 
         <div class="tanks-container" id="tanksContainer">
@@ -2712,11 +3505,13 @@
 
       <!-- DVR CAMERAS PAGE -->
       <div id="dvrManagerPage" class="page">
-        <div class="content-header">
-          <button class="btn btn-primary btn-sm" onclick="openAddCameraModal()" style="gap: 8px;">
-            <svg style="width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Camera
-          </button>
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-primary btn-sm" onclick="openAddCameraModal()" style="gap: 8px;">
+              <svg style="width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Camera
+            </button>
+          </div>
         </div>
 
         <div class="dvr-cameras-container" id="dvrCamerasContainer">
@@ -2726,10 +3521,12 @@
 
       <!-- BOOKINGS PAGE -->
       <div id="bookingsPage" class="page">
-        <div class="content-header">
-          <div style="display: flex; gap: 12px;">
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
             <button class="btn btn-primary btn-sm" onclick="console.log('🔴 Create Booking clicked'); openCreateBookingModal('bnb')">+ Create Booking</button>
-            <select id="bookingStatusFilter" onchange="loadBookings()" style="padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius);">
+          </div>
+          <div class="toolbar-right">
+            <select id="bookingStatusFilter" onchange="loadBookings()">
               <option value="">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
@@ -2760,12 +3557,14 @@
         </div>
       </div>
 
-      <!-- RENTALS PAGE -->
-      <div id="rentalsPage" class="page">
-        <div class="content-header">
-          <div style="display: flex; gap: 12px;">
-            <button class="btn btn-primary btn-sm" onclick="console.log('🔴 Create Rental clicked'); openCreateBookingModal('rental')">+ Create Rental</button>
-            <select id="rentalStatusFilter" onchange="loadRentals()" style="padding: 10px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius);">
+      <!-- TENANTS PAGE -->
+      <div id="tenantsPage" class="page">
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-primary btn-sm" onclick="console.log('🔴 Create Tenant clicked'); openCreateBookingModal('rental')">+ Create Tenant</button>
+          </div>
+          <div class="toolbar-right">
+            <select id="tenantStatusFilter" onchange="loadTenants()">
               <option value="">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
@@ -2776,20 +3575,20 @@
         </div>
 
         <div class="table-container">
-          <table id="rentalsTable">
+          <table id="tenantsTable">
             <thead>
               <tr>
                 <th>Ref</th>
-                <th>Guest</th>
+                <th>Tenant</th>
                 <th>Unit</th>
-                <th>Check-in</th>
-                <th>Check-out</th>
+                <th>Move in</th>
+                <th>Move out</th>
                 <th>Status</th>
                 <th>Total (KES)</th>
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody id="rentalsTableBody">
+            <tbody id="tenantsTableBody">
               <tr><td colspan="8" style="text-align: center; padding: 32px;">Loading...</td></tr>
             </tbody>
           </table>
@@ -2855,23 +3654,23 @@
 
         <!-- ACCESS LOGS TAB -->
         <div id="accessLogsContainer">
-          <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; background: var(--cream); padding: 16px; border-radius: var(--radius);">
-            <div>
+          <div class="filter-toolbar" style="background: var(--cream); padding: 16px; border-radius: var(--radius); margin-bottom: 20px;">
+            <div class="toolbar-left">
               <label style="font-size: .8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Role</label>
-              <select id="logRoleFilter" onchange="accessManager.updateLogFilters()" style="padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: .9rem; background: white; cursor: pointer;">
+              <select id="logRoleFilter" onchange="accessManager.updateLogFilters()">
                 <option value="">All Roles</option>
                 <option value="Staff">Staff</option>
                 <option value="Guest">Guest</option>
                 <option value="Maintenance">Maintenance</option>
               </select>
             </div>
-            <div>
+            <div class="toolbar-center">
               <label style="font-size: .8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">From Date</label>
-              <input type="datetime-local" id="logDateFromFilter" onchange="accessManager.updateLogFilters()" style="padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: .9rem;">
+              <input type="datetime-local" id="logDateFromFilter" onchange="accessManager.updateLogFilters()">
             </div>
-            <div>
+            <div class="toolbar-right">
               <label style="font-size: .8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">To Date</label>
-              <input type="datetime-local" id="logDateToFilter" onchange="accessManager.updateLogFilters()" style="padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: .9rem;">
+              <input type="datetime-local" id="logDateToFilter" onchange="accessManager.updateLogFilters()">
             </div>
           </div>
 
@@ -2896,23 +3695,23 @@
 
         <!-- ALLOWED PEOPLE TAB -->
         <div id="allowedPeopleContainer" style="display: none;">
-          <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; background: var(--cream); padding: 16px; border-radius: var(--radius);">
-            <div>
+          <div class="filter-toolbar" style="background: var(--cream); padding: 16px; border-radius: var(--radius); margin-bottom: 20px;">
+            <div class="toolbar-left">
               <label style="font-size: .8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Search</label>
-              <input type="text" id="peopleSearchInput" placeholder="Name or ID" onchange="accessManager.updatePeopleFilters()" oninput="accessManager.updatePeopleFilters()" style="padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: .9rem; width: 200px;">
+              <input type="text" id="peopleSearchInput" placeholder="Name or ID" onchange="accessManager.updatePeopleFilters()" oninput="accessManager.updatePeopleFilters()" style="flex: 1; min-width: 150px;">
             </div>
-            <div>
+            <div class="toolbar-center">
               <label style="font-size: .8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Role</label>
-              <select id="peopleRoleFilter" onchange="accessManager.updatePeopleFilters()" style="padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: .9rem; background: white; cursor: pointer;">
+              <select id="peopleRoleFilter" onchange="accessManager.updatePeopleFilters()">
                 <option value="">All Roles</option>
                 <option value="Staff">Staff</option>
                 <option value="Guest">Guest</option>
                 <option value="Maintenance">Maintenance</option>
               </select>
             </div>
-            <div>
+            <div class="toolbar-right">
               <label style="font-size: .8rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Status</label>
-              <select id="peopleStatusFilter" onchange="accessManager.updatePeopleFilters()" style="padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: .9rem; background: white; cursor: pointer;">
+              <select id="peopleStatusFilter" onchange="accessManager.updatePeopleFilters()">
                 <option value="Active">Active Only</option>
                 <option value="Revoked">Revoked Only</option>
                 <option value="">All Status</option>
@@ -2990,15 +3789,13 @@
 
       <!-- ADMIN USERS PAGE -->
       <div id="adminUsersPage" class="page">
-        <div class="content-header">
-          <div>
-            <h1 class="section-title">Admin Users</h1>
-            <p style="color: var(--text-muted); margin-top: 4px; font-size: 0.9rem;">Manage admin accounts and property assignments</p>
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
+            <button onclick="adminUsersManager.openCreateModal()" class="btn btn-primary btn-sm" style="gap: 8px; white-space: nowrap;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add New Admin
+            </button>
           </div>
-          <button onclick="adminUsersManager.openCreateModal()" class="btn btn-primary btn-sm" style="gap: 8px; white-space: nowrap;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add New Admin
-          </button>
         </div>
 
         <!-- Admin Users Table -->
@@ -3070,9 +3867,9 @@
             <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 2h11a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-12A2.5 2.5 0 0 1 6.5 2m5 4v3m-3-3v3"/></svg>
             <span>Bookings</span>
           </a>
-          <a class="nav-link" onclick="showPage('rentals'); closeDrawer()">
+          <a class="nav-link" onclick="showPage('tenants'); closeDrawer()">
             <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/><path d="M12 7v5l3 2"/></svg>
-            <span>Rentals</span>
+            <span>Tenants</span>
           </a>
         </div>
 
@@ -3631,6 +4428,257 @@
 <!-- Session and Loading Managers (load BEFORE admin.js) -->
 <script src="/js/auth-session-manager.js"></script>
 <script src="/js/skeleton-loader.js"></script>
+<!-- Manager Modules (load BEFORE admin.js) -->
+<script src="/js/calendar-manager.js"></script>
+<script>
+  /**
+   * MODERN DASHBOARD CHARTS & ANIMATIONS
+   * Handles interactive charts and modern dashboard features
+   */
+
+  let revenueChartInstance = null;
+  let currentRevenueInterval = 'week';
+  let dashboardBookingData = [];
+
+  // Initialize dashboard when page loads
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeDashboardCharts();
+    setupChartAnimations();
+  });
+
+  function initializeDashboardCharts() {
+    // Check if canvas exists before creating chart
+    const revenueCanvas = document.getElementById('revenueChart');
+    if (revenueCanvas) {
+      createRevenueChart('week');
+    }
+  }
+
+  function updateRevenueChartData(bookingsData, interval) {
+    dashboardBookingData = bookingsData;
+    createRevenueChart(interval);
+  }
+
+  function processBookingDataByDate(bookings, interval) {
+    if (!bookings || bookings.length === 0) {
+      return { labels: [], data: [] };
+    }
+
+    const now = new Date();
+    const dateMap = {};
+
+    // Process bookings based on interval
+    if (interval === 'week') {
+      // Get last 7 days
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const key = date.toISOString().split('T')[0];
+        dateMap[key] = 0;
+      }
+      
+      bookings.forEach(b => {
+        const key = new Date(b.checkin_date).toISOString().split('T')[0];
+        if (dateMap.hasOwnProperty(key)) {
+          dateMap[key] += (b.total_amount_kes || 0);
+        }
+      });
+
+      const labels = Object.keys(dateMap).map(d => {
+        const date = new Date(d);
+        return date.toLocaleDateString('en-US', { weekday: 'short' });
+      });
+      const data = Object.values(dateMap);
+      return { labels, data };
+    } 
+    else if (interval === 'month') {
+      // Get last 30 days aggregated by week
+      const weekMap = {};
+      for (let i = 3; i >= 0; i--) {
+        const weekLabel = `Week ${4 - i}`;
+        weekMap[weekLabel] = 0;
+      }
+
+      bookings.forEach(b => {
+        const bookingDate = new Date(b.checkin_date);
+        const dayOfMonth = bookingDate.getDate();
+        const week = Math.ceil(dayOfMonth / 7);
+        const weekLabel = `Week ${week}`;
+        if (weekMap.hasOwnProperty(weekLabel)) {
+          weekMap[weekLabel] += (b.total_amount_kes || 0);
+        }
+      });
+
+      const labels = Object.keys(weekMap);
+      const data = Object.values(weekMap);
+      return { labels, data };
+    }
+    else if (interval === 'year') {
+      // Get last 12 months
+      const monthMap = {};
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now);
+        date.setMonth(date.getMonth() - i);
+        const monthLabel = monthNames[date.getMonth()];
+        monthMap[monthLabel] = 0;
+      }
+
+      bookings.forEach(b => {
+        const bookingDate = new Date(b.checkin_date);
+        const monthLabel = monthNames[bookingDate.getMonth()];
+        if (monthMap.hasOwnProperty(monthLabel)) {
+          monthMap[monthLabel] += (b.total_amount_kes || 0);
+        }
+      });
+
+      const labels = Object.keys(monthMap);
+      const data = Object.values(monthMap);
+      return { labels, data };
+    }
+
+    return { labels: [], data: [] };
+  }
+
+  function createRevenueChart(interval) {
+    const ctx = document.getElementById('revenueChart');
+    if (!ctx) return;
+
+    const chartData = processBookingDataByDate(dashboardBookingData, interval);
+
+    if (revenueChartInstance) {
+      revenueChartInstance.destroy();
+    }
+
+    revenueChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          label: 'Revenue (KES)',
+          data: chartData.data,
+          borderColor: '#8B6F47',
+          backgroundColor: 'rgba(139,111,71,0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 5,
+          pointBackgroundColor: '#8B6F47',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverRadius: 7,
+          pointHoverBackgroundColor: '#C4A882',
+          hoverBackgroundColor: 'rgba(139,111,71,0.2)'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              usePointStyle: true,
+              padding: 20,
+              font: { size: 12, weight: 500 },
+              color: '#6B6358'
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(28,26,23,0.8)',
+            padding: 12,
+            titleFont: { size: 13, weight: 600 },
+            bodyFont: { size: 12 },
+            borderColor: '#8B6F47',
+            borderWidth: 1,
+            titleColor: '#fff',
+            bodyColor: '#fff',
+            displayColors: true,
+            callbacks: {
+              label: function(context) {
+                return 'KES ' + context.parsed.y.toLocaleString();
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(139,111,71,0.05)',
+              drawBorder: false
+            },
+            ticks: {
+              color: '#6B6358',
+              font: { size: 11 },
+              callback: function(value) {
+                return 'KES ' + (value / 1000).toFixed(0) + 'K';
+              }
+            }
+          },
+          x: {
+            grid: {
+              display: false,
+              drawBorder: false
+            },
+            ticks: {
+              color: '#6B6358',
+              font: { size: 11 }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function updateRevenueChart(interval) {
+    // Update button states
+    document.querySelectorAll('.interval-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    currentRevenueInterval = interval;
+    createRevenueChart(interval);
+  }
+
+  function setupChartAnimations() {
+    // Animate stat cards on load
+    const statCards = document.querySelectorAll('.stat-card');
+    statCards.forEach((card, index) => {
+      setTimeout(() => {
+        card.style.animation = `slideUp 0.6s cubic-bezier(.4,0,.2,1) forwards`;
+      }, index * 100);
+    });
+
+    // Animate progress bars
+    const progressBars = document.querySelectorAll('.progress-bar-fill');
+    progressBars.forEach(bar => {
+      const width = bar.style.width;
+      bar.style.width = '0';
+      setTimeout(() => {
+        bar.style.width = width;
+      }, 100);
+    });
+  }
+
+  // Function to format numbers with commas
+  function formatNumber(num) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  // Extend window object for admin.js compatibility
+  window.updateRevenueChart = updateRevenueChart;
+  window.setupChartAnimations = setupChartAnimations;
+  window.initializeDashboardCharts = initializeDashboardCharts;
+  window.updateRevenueChartData = updateRevenueChartData;
+  window.processBookingDataByDate = processBookingDataByDate;
+</script>
 <!-- Main Admin Script -->
 <script src="/js/admin.js"></script>
 <script src="/js/tank-manager.js"></script>
