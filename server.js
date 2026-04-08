@@ -4,6 +4,9 @@ const express    = require('express');
 const cors       = require('cors');
 const path       = require('path');
 const mpesaRoutes = require('./src/mpesaRoutes');
+const calendarRoutes = require('./src/calendarRoutes');
+const bookingRoutes = require('./src/bookingRoutes');
+const adminRoutes = require('./src/adminRoutes');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -13,7 +16,7 @@ app.use(cors({
   origin: process.env.NODE_ENV === 'production'
     ? ['https://nyathirahomes.com', 'https://www.nyathirahomes.com']
     : '*',
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -30,6 +33,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── API routes ───────────────────────────────────────────────────────────
 app.use('/api/mpesa', mpesaRoutes);
+app.use('/api/calendar', calendarRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check — useful for deployment platforms and uptime monitors
 app.get('/health', (_req, res) => {

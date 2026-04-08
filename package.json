@@ -5,14 +5,22 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "migrate:latest": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "seed:run": "knex seed:run"
   },
   "dependencies": {
     "africastalking": "^0.5.2",
     "axios": "^1.7.9",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "feather-icons": "^4.29.2",
+    "jsonwebtoken": "^9.0.3",
+    "knex": "^3.1.0",
+    "pg": "^8.11.3",
     "uuid": "^11.0.5"
   }
 }
