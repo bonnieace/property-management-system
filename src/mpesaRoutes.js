@@ -2,6 +2,9 @@ const express    = require('express');
 const daraja     = require('./daraja');
 const store      = require('./bookingStore');
 const msgQueue   = require('./messageQueue');
+const db         = require('./db');
+const tenantService = require('./tenantService');
+const paymentService = require('./paymentService');
 
 const router = express.Router();
 
@@ -24,6 +27,92 @@ function validateAmount(amount) {
   const n = parseInt(amount, 10);
   if (isNaN(n) || n < 1) return null;
   return n;
+}
+
+/**
+ * Handle rental payment from M-Pesa callback
+ * Finds active contract for tenant and applies payment
+ */
+async function handleRentalPayment({
+  phone,
+  amount,
+  mpesaReceiptNumber,
+  transactionDate,
+}) {
+  try {
+    console.log(`[Callback Rental] Processing rental payment for ${phone} | amount=${amount} KES | receipt=${mpesaReceiptNumber}`);
+
+    // Lookup tenant by phone
+    const tenant = await tenantService.getTenantByPhone(phone);
+    if (!tenant) {
+      console.warn(`[Callback Rental] Tenant not found for phone ${phone}, falling through to BnB`);
+      return null; // Signal to fall through to BnB flow
+    }
+
+    console.log(`[Callback Rental] Found tenant ID ${tenant.id} (${tenant.tenant_name})`);
+
+    // Get active contract for tenant
+    const contract = await db('rental_contracts')
+      .where('tenant_id', tenant.id)
+      .where('status', 'active')
+      .orderBy('start_date', 'desc')
+      .first();
+
+    if (!contract) {
+      console.warn(`[Callback Rental] No active contract for tenant ${tenant.id}`);
+      return { success: false, reason: 'No active contract' };
+    }
+
+    console.log(`[Callback Rental] Found active contract ${contract.id} | monthly rent = ${contract.monthly_rent_kes} KES`);
+
+    // Determine payment month (current month)
+    const now = new Date();
+    const month = now.getMonth() + 1; // 1-12
+    const year = now.getFullYear();
+
+    // Record payment (handles partial, full, overpayment automatically)
+    const payment = await paymentService.recordPayment({
+      contract_id: contract.id,
+      tenant_id: tenant.id,
+      unit_id: contract.unit_id,
+      month,
+      year,
+      amount_paid_kes: amount,
+      mpesa_receipt: mpesaReceiptNumber,
+      mpesa_phone: phone,
+      mpesa_reference: `received_${mpesaReceiptNumber}`,
+      notes: `M-Pesa payment on ${new Date().toISOString().split('T')[0]}`
+    });
+
+    console.log(`[Callback Rental] Payment recorded ID=${payment.id} | status=${payment.status} | outstanding=${payment.amount_outstanding_kes} KES`);
+
+    // Queue SMS notification to tenant
+    try {
+      msgQueue.queueMessage('sms', normPhone, 'rental_payment_confirmation', {
+        tenant_name: tenant.tenant_name,
+        month: payment.month,
+        year: payment.year,
+        amount_paid: amount,
+        outstanding: payment.amount_outstanding_kes,
+        mpesa_receipt: mpesaReceiptNumber
+      });
+      console.log(`[Callback Rental] SMS queued for tenant ${normPhone}`);
+    } catch (err) {
+      console.error(`[Callback Rental] Failed to queue SMS: ${err.message}`);
+    }
+
+    return {
+      success: true,
+      tenant_id: tenant.id,
+      contract_id: contract.id,
+      payment_id: payment.id,
+      status: payment.status,
+      outstanding_kes: payment.amount_outstanding_kes
+    };
+  } catch (err) {
+    console.error(`[Callback Rental] Error: ${err.message}`);
+    return { success: false, reason: err.message };
+  }
 }
 
 // ─── POST /api/mpesa/stk-push ──────────────────────────────────────────────
@@ -112,6 +201,12 @@ router.post('/stk-push', async (req, res) => {
 // ─── POST /api/mpesa/callback ──────────────────────────────────────────────
 //
 // Safaricom POSTs here after the user enters their PIN.
+// DUAL-FLOW ROUTING:
+//   1. Extract phone from callback metadata
+//   2. Check if phone matches a tenant (rental payment)
+//   3. If yes → apply payment to rental contract
+//   4. If no → apply payment to BnB booking (existing logic)
+// 
 // Must respond with { ResultCode: 0, ResultDesc: "Success" } quickly
 // — Safaricom retries if you take >10 seconds or return non-200.
 //
@@ -135,49 +230,88 @@ router.post('/callback', async (req, res) => {
       const items = CallbackMetadata?.Item || [];
       const get   = (name) => items.find(i => i.Name === name)?.Value ?? null;
 
-      const booking = await store.confirm(CheckoutRequestID, {
-        mpesaReceiptNumber: get('MpesaReceiptNumber'),
-        transactionDate:    String(get('TransactionDate')),
-        phoneNumber:        String(get('PhoneNumber')),
-      });
+      const mpesaReceiptNumber = get('MpesaReceiptNumber');
+      const transactionDate = String(get('TransactionDate'));
+      const phoneNumber = String(get('PhoneNumber'));
+      const amount = validateAmount(get('Amount'));
 
-      if (booking) {
-        console.log(`[Callback] CONFIRMED bookingId=${booking.bookingId}  receipt=${booking.mpesaReceiptNumber}`);
+      const normPhone = normalisePhone(phoneNumber);
+      if (!normPhone) {
+        console.error(`[Callback] Invalid phone in callback: ${phoneNumber}`);
+        return;
+      }
 
-        // ── Queue booking with payment confirmation notifications (SMS + Email) ──
-        if (booking.guestEmail) {
-          try {
-            // Use the normalized phone stored in confirmed booking
-            const messagePhoneNumber = booking.confirmedPhone || booking.guestPhone;
-            msgQueue.queueBookingWithPaymentConfirmationMessages(
-              messagePhoneNumber,
-              booking.guestEmail,
-              {
-                ref: booking.ref,
-                guestName: booking.guestName,
-                mpesaReceiptNumber: booking.mpesaReceiptNumber,
-                amount: booking.amount,
-                checkin: booking.checkin,
-                checkout: booking.checkout,
-                property: booking.property,
-                transactionDate: booking.transactionDate,
-                nights: booking.nights,
-              }
-            );
-            console.log(`[Callback] Messages queued for booking ${booking.bookingId}`);
-          } catch (msgErr) {
-            console.error(`[Callback] Failed to queue messages: ${msgErr.message}`);
+      // ─────────────────────────────────────────────────────────────────
+      // DUAL-FLOW ROUTING: Try rental first, fall through to BnB
+      // ─────────────────────────────────────────────────────────────────
+      console.log(`[Callback] Attempting dual-flow routing for ${normPhone}...`);
+
+      let rentalResult = null;
+      try {
+        rentalResult = await handleRentalPayment({
+          phone: normPhone,
+          amount,
+          mpesaReceiptNumber,
+          transactionDate
+        });
+      } catch (err) {
+        console.error(`[Callback] Rental flow error: ${err.message}`);
+        rentalResult = { success: false, reason: err.message };
+      }
+
+      // If rental payment was processed successfully, we're done
+      if (rentalResult && rentalResult.success) {
+        console.log(`[Callback] ✅ RENTAL PAYMENT processed | tenant_id=${rentalResult.tenant_id} | payment_id=${rentalResult.payment_id}`);
+        return;
+      }
+
+      // If no tenant found, or rental flow signaled fallthrough → process as BnB
+      if (rentalResult === null || !rentalResult.success) {
+        console.log(`[Callback] Rotating to BnB flow (rental: ${rentalResult ? 'failed' : 'not_found'})`);
+
+        const booking = await store.confirm(CheckoutRequestID, {
+          mpesaReceiptNumber,
+          transactionDate,
+          phoneNumber: normPhone,
+        });
+
+        if (booking) {
+          console.log(`[Callback] ✅ BNB BOOKING confirmed | bookingId=${booking.bookingId} | receipt=${booking.mpesaReceiptNumber}`);
+
+          // ── Queue booking with payment confirmation notifications (SMS + Email) ──
+          if (booking.guestEmail) {
+            try {
+              const messagePhoneNumber = booking.confirmedPhone || booking.guestPhone;
+              msgQueue.queueBookingWithPaymentConfirmationMessages(
+                messagePhoneNumber,
+                booking.guestEmail,
+                {
+                  ref: booking.ref,
+                  guestName: booking.guestName,
+                  mpesaReceiptNumber: booking.mpesaReceiptNumber,
+                  amount: booking.amount,
+                  checkin: booking.checkin,
+                  checkout: booking.checkout,
+                  property: booking.property,
+                  transactionDate: booking.transactionDate,
+                  nights: booking.nights,
+                }
+              );
+              console.log(`[Callback] Messages queued for booking ${booking.bookingId}`);
+            } catch (msgErr) {
+              console.error(`[Callback] Failed to queue messages: ${msgErr.message}`);
+            }
           }
+        } else {
+          console.warn(`[Callback] No booking found for CheckoutRequestID=${CheckoutRequestID}`);
         }
-      } else {
-        console.warn(`[Callback] No booking found for CheckoutRequestID=${CheckoutRequestID}`);
       }
 
     } else {
       // Payment failed (wrong PIN, cancelled, insufficient funds, timeout)
       const booking = await store.fail(CheckoutRequestID, ResultDesc);
       if (booking) {
-        console.log(`[Callback] FAILED bookingId=${booking.bookingId}  reason="${ResultDesc}"`);
+        console.log(`[Callback] ❌ BNB BOOKING FAILED | bookingId=${booking.bookingId} | reason="${ResultDesc}"`);
       }
     }
   } catch (err) {

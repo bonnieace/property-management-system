@@ -87,13 +87,21 @@ async function authenticateUser(username, password) {
       .first();
     
     if (!admin) {
+      console.log(`[authenticateUser] User not found or inactive: ${username}`);
       return { ok: false, error: 'Invalid username or password' };
     }
+
+    console.log(`[authenticateUser] User found. Comparing password...`);
+    console.log(`[authenticateUser] Provided password: "${password}"`);
+    console.log(`[authenticateUser] Hash: ${admin.password_hash.substring(0, 40)}...`);
 
     // Compare password with bcrypt hash
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
     
+    console.log(`[authenticateUser] Password match result: ${passwordMatch}`);
+    
     if (!passwordMatch) {
+      console.log(`[authenticateUser] Password mismatch for user: ${username}`);
       return { ok: false, error: 'Invalid username or password' };
     }
 

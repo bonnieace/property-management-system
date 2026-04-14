@@ -7,6 +7,9 @@ const express = require('express');
 const router = express.Router();
 const db = require('./db');
 const bcrypt = require('bcrypt');
+const { createTenant, getTenantByPhone, getTenantById, updateTenant, listTenants } = require('./tenantService');
+const { createContract, getContractById, listContracts, updateContract, getActiveTenantContract, getTenantUnitContract, endContract } = require('./contractService');
+const { recordPayment, getPaymentById, getMonthlyPayment, listPayments, getTenantArrears, updatePaymentStatusToLate, getContractPaymentSummary } = require('./paymentService');
 const {
   adminAuthMiddleware,
   propertyAccessMiddleware,
@@ -33,12 +36,27 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Username and password required' });
     }
 
+    console.log(`🔐 [Login] Attempting login for username: ${username}`);
+    
+    // Debug: Check if user exists and what hash is stored
+    const admin = await db('admin_users').where('username', username).first();
+    if (!admin) {
+      console.log(`🔐 [Login] User not found: ${username}`);
+      return res.status(401).json({ ok: false, error: 'Invalid username or password' });
+    }
+    
+    console.log(`🔐 [Login] User found: ${admin.username}, status: ${admin.status}`);
+    console.log(`🔐 [Login] Password hash in DB: ${admin.password_hash.substring(0, 40)}...`);
+    console.log(`🔐 [Login] Password provided: ${password}`);
+    
     const result = await authenticateUser(username, password);
 
     if (!result.ok) {
+      console.log(`🔐 [Login] Authentication failed for ${username}: ${result.error}`);
       return res.status(401).json(result);
     }
 
+    console.log(`🔐 [Login] Authentication successful for ${username}`);
     res.json(result);
   } catch (err) {
     console.error('[Admin Login]', err);
@@ -1305,6 +1323,549 @@ router.delete('/admins/:id/properties/:propertyId', adminAuthMiddleware, fullAcc
   } catch (err) {
     console.error('[Unassign Property]', err);
     res.status(500).json({ ok: false, error: 'Failed to unassign property' });
+  }
+});
+
+// ─────────────────────────────────────────────────────
+// TENANTS ENDPOINTS (RENTAL SYSTEM)
+// ─────────────────────────────────────────────────────
+
+/**
+ * POST /admin/tenants
+ * Create a new tenant record
+ */
+router.post('/tenants', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { 
+      tenant_phone, 
+      tenant_name, 
+      tenant_email, 
+      id_number, 
+      next_of_kin_phone, 
+      next_of_kin_name, 
+      notes 
+    } = req.body;
+
+    if (!tenant_phone || !tenant_name) {
+      return res.status(400).json({ ok: false, error: 'tenant_phone and tenant_name are required' });
+    }
+
+    const tenant = await createTenant({
+      tenant_phone,
+      tenant_name,
+      tenant_email,
+      id_number,
+      next_of_kin_phone,
+      next_of_kin_name,
+      notes
+    });
+
+    res.status(201).json({
+      ok: true,
+      data: tenant
+    });
+  } catch (err) {
+    console.error('[POST Tenants]', err);
+    const message = err.message.includes('already exists') ? err.message : 'Failed to create tenant';
+    res.status(400).json({ ok: false, error: message });
+  }
+});
+
+/**
+ * GET /admin/tenants
+ * List all tenants with pagination
+ */
+router.get('/tenants', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0 } = req.query;
+
+    const tenants = await listTenants({
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.json({
+      ok: true,
+      data: tenants,
+      count: tenants.length
+    });
+  } catch (err) {
+    console.error('[GET Tenants]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch tenants' });
+  }
+});
+
+/**
+ * GET /admin/tenants/:phone
+ * Get tenant by phone number (primary lookup for M-Pesa callbacks)
+ */
+router.get('/tenants/:phone', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { phone } = req.params;
+
+    const tenant = await getTenantByPhone(phone);
+
+    if (!tenant) {
+      return res.status(404).json({ ok: false, error: 'Tenant not found' });
+    }
+
+    res.json({
+      ok: true,
+      data: tenant
+    });
+  } catch (err) {
+    console.error('[GET Tenant by Phone]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch tenant' });
+  }
+});
+
+/**
+ * PUT /admin/tenants/:id
+ * Update tenant information
+ */
+router.put('/tenants/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      tenant_name, 
+      tenant_email, 
+      id_number, 
+      next_of_kin_phone, 
+      next_of_kin_name, 
+      notes 
+    } = req.body;
+
+    // Build update object with only provided fields
+    const updates = {};
+    if (tenant_name !== undefined) updates.tenant_name = tenant_name;
+    if (tenant_email !== undefined) updates.tenant_email = tenant_email;
+    if (id_number !== undefined) updates.id_number = id_number;
+    if (next_of_kin_phone !== undefined) updates.next_of_kin_phone = next_of_kin_phone;
+    if (next_of_kin_name !== undefined) updates.next_of_kin_name = next_of_kin_name;
+    if (notes !== undefined) updates.notes = notes;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ ok: false, error: 'No fields to update' });
+    }
+
+    const tenant = await updateTenant(id, updates);
+
+    if (!tenant) {
+      return res.status(404).json({ ok: false, error: 'Tenant not found' });
+    }
+
+    res.json({
+      ok: true,
+      data: tenant
+    });
+  } catch (err) {
+    console.error('[PUT Tenants]', err);
+    res.status(500).json({ ok: false, error: 'Failed to update tenant' });
+  }
+});
+
+// ─────────────────────────────────────────────────────
+// RENTAL CONTRACTS ENDPOINTS (RENTAL SYSTEM)
+// ─────────────────────────────────────────────────────
+
+/**
+ * POST /admin/contracts
+ * Create a new rental contract
+ */
+router.post('/contracts', adminAuthMiddleware, async (req, res) => {
+  try {
+    const {
+      tenant_id,
+      unit_id,
+      property_id,
+      start_date,
+      end_date,
+      monthly_rent_kes,
+      payment_frequency,
+      security_deposit_kes,
+      utilities_deposit_kes,
+      notes
+    } = req.body;
+
+    if (!tenant_id || !unit_id || !property_id || !start_date || !monthly_rent_kes) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Required fields: tenant_id, unit_id, property_id, start_date, monthly_rent_kes'
+      });
+    }
+
+    const contract = await createContract({
+      tenant_id,
+      unit_id,
+      property_id,
+      start_date,
+      end_date,
+      monthly_rent_kes,
+      payment_frequency,
+      security_deposit_kes,
+      utilities_deposit_kes,
+      notes
+    });
+
+    res.status(201).json({
+      ok: true,
+      data: contract
+    });
+  } catch (err) {
+    console.error('[POST Contracts]', err);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * GET /admin/contracts
+ * List all contracts with optional filters
+ */
+router.get('/contracts', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { tenant_id, unit_id, status, limit = 50, offset = 0 } = req.query;
+
+    const contracts = await listContracts({
+      tenant_id: tenant_id ? parseInt(tenant_id) : null,
+      unit_id: unit_id ? parseInt(unit_id) : null,
+      status,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.json({
+      ok: true,
+      data: contracts,
+      count: contracts.length
+    });
+  } catch (err) {
+    console.error('[GET Contracts]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch contracts' });
+  }
+});
+
+/**
+ * GET /admin/contracts/:id
+ * Get contract by ID
+ */
+router.get('/contracts/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const contract = await getContractById(id);
+
+    if (!contract) {
+      return res.status(404).json({ ok: false, error: 'Contract not found' });
+    }
+
+    res.json({
+      ok: true,
+      data: contract
+    });
+  } catch (err) {
+    console.error('[GET Contract by ID]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch contract' });
+  }
+});
+
+/**
+ * GET /admin/contracts/tenant/:tenant_id/active
+ * Get active contract for a specific tenant
+ */
+router.get('/contracts/tenant/:tenant_id/active', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { tenant_id } = req.params;
+
+    const contract = await getActiveTenantContract(parseInt(tenant_id));
+
+    if (!contract) {
+      return res.status(404).json({ ok: false, error: 'No active contract found' });
+    }
+
+    res.json({
+      ok: true,
+      data: contract
+    });
+  } catch (err) {
+    console.error('[GET Active Contract]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch contract' });
+  }
+});
+
+/**
+ * PUT /admin/contracts/:id
+ * Update contract details
+ */
+router.put('/contracts/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      monthly_rent_kes,
+      payment_frequency,
+      security_deposit_kes,
+      utilities_deposit_kes,
+      status,
+      notes,
+      end_date
+    } = req.body;
+
+    // Build update object with only provided fields
+    const updates = {};
+    if (monthly_rent_kes !== undefined) updates.monthly_rent_kes = monthly_rent_kes;
+    if (payment_frequency !== undefined) updates.payment_frequency = payment_frequency;
+    if (security_deposit_kes !== undefined) updates.security_deposit_kes = security_deposit_kes;
+    if (utilities_deposit_kes !== undefined) updates.utilities_deposit_kes = utilities_deposit_kes;
+    if (status !== undefined) updates.status = status;
+    if (notes !== undefined) updates.contract_notes = notes;
+    if (end_date !== undefined) updates.end_date = end_date;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ ok: false, error: 'No fields to update' });
+    }
+
+    const contract = await updateContract(id, updates);
+
+    if (!contract) {
+      return res.status(404).json({ ok: false, error: 'Contract not found' });
+    }
+
+    res.json({
+      ok: true,
+      data: contract
+    });
+  } catch (err) {
+    console.error('[PUT Contracts]', err);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /admin/contracts/:id/end
+ * End a contract (set end_date and status to 'ended')
+ */
+router.post('/contracts/:id/end', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { termination_reason } = req.body;
+
+    const contract = await endContract(id, termination_reason);
+
+    if (!contract) {
+      return res.status(404).json({ ok: false, error: 'Contract not found' });
+    }
+
+    res.json({
+      ok: true,
+      data: contract
+    });
+  } catch (err) {
+    console.error('[POST End Contract]', err);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────
+// RENTAL PAYMENTS ENDPOINTS (RENTAL SYSTEM)
+// ─────────────────────────────────────────────────────
+
+/**
+ * POST /admin/payments
+ * Record a payment for a rental contract
+ * Handles partial payments and overpayment automatically
+ */
+router.post('/payments', adminAuthMiddleware, async (req, res) => {
+  try {
+    const {
+      contract_id,
+      tenant_id,
+      unit_id,
+      month,
+      year,
+      amount_paid_kes,
+      mpesa_receipt,
+      mpesa_phone,
+      mpesa_reference,
+      notes
+    } = req.body;
+
+    if (!contract_id || !tenant_id || !unit_id || !month || !year || amount_paid_kes === undefined) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Required fields: contract_id, tenant_id, unit_id, month, year, amount_paid_kes'
+      });
+    }
+
+    const payment = await recordPayment({
+      contract_id,
+      tenant_id,
+      unit_id,
+      month,
+      year,
+      amount_paid_kes,
+      mpesa_receipt,
+      mpesa_phone,
+      mpesa_reference,
+      notes
+    });
+
+    res.status(201).json({
+      ok: true,
+      data: payment
+    });
+  } catch (err) {
+    console.error('[POST Payments]', err);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * GET /admin/payments
+ * List all payments with optional filters
+ */
+router.get('/payments', adminAuthMiddleware, async (req, res) => {
+  try {
+    const {
+      contract_id,
+      tenant_id,
+      unit_id,
+      status,
+      from_month,
+      to_month,
+      limit = 50,
+      offset = 0
+    } = req.query;
+
+    const payments = await listPayments({
+      contract_id: contract_id ? contract_id : null,
+      tenant_id: tenant_id ? parseInt(tenant_id) : null,
+      unit_id: unit_id ? parseInt(unit_id) : null,
+      status,
+      from_month,
+      to_month,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.json({
+      ok: true,
+      data: payments,
+      count: payments.length
+    });
+  } catch (err) {
+    console.error('[GET Payments]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch payments' });
+  }
+});
+
+/**
+ * GET /admin/payments/:id
+ * Get payment by ID
+ */
+router.get('/payments/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const payment = await getPaymentById(id);
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, error: 'Payment not found' });
+    }
+
+    res.json({
+      ok: true,
+      data: payment
+    });
+  } catch (err) {
+    console.error('[GET Payment by ID]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch payment' });
+  }
+});
+
+/**
+ * GET /admin/payments/contract/:contract_id/month/:month_year
+ * Get payment for a specific month
+ */
+router.get('/payments/contract/:contract_id/month/:month_year', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { contract_id, month_year } = req.params;
+
+    const payment = await getMonthlyPayment(contract_id, month_year);
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, error: 'No payment found for this month' });
+    }
+
+    res.json({
+      ok: true,
+      data: payment
+    });
+  } catch (err) {
+    console.error('[GET Monthly Payment]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch payment' });
+  }
+});
+
+/**
+ * GET /admin/tenants/:tenant_id/arrears
+ * Get outstanding arrears for a tenant
+ */
+router.get('/tenants/:tenant_id/arrears', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { tenant_id } = req.params;
+
+    const arrears = await getTenantArrears(parseInt(tenant_id));
+
+    res.json({
+      ok: true,
+      data: arrears
+    });
+  } catch (err) {
+    console.error('[GET Tenant Arrears]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch arrears' });
+  }
+});
+
+/**
+ * GET /admin/contracts/:contract_id/payment-summary
+ * Get payment summary for a contract
+ */
+router.get('/contracts/:contract_id/payment-summary', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { contract_id } = req.params;
+
+    const summary = await getContractPaymentSummary(contract_id);
+
+    res.json({
+      ok: true,
+      data: summary
+    });
+  } catch (err) {
+    console.error('[GET Payment Summary]', err);
+    res.status(500).json({ ok: false, error: 'Failed to fetch payment summary' });
+  }
+});
+
+/**
+ * POST /admin/payments/:id/mark-late
+ * Mark a payment as late (if due date has passed)
+ */
+router.post('/payments/:id/mark-late', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const payment = await updatePaymentStatusToLate(id);
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, error: 'Payment not found' });
+    }
+
+    res.json({
+      ok: true,
+      data: payment
+    });
+  } catch (err) {
+    console.error('[POST Mark Late]', err);
+    res.status(400).json({ ok: false, error: err.message });
   }
 });
 
