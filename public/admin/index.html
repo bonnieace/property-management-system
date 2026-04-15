@@ -2573,6 +2573,28 @@
       }
     }
 
+    .modal-actions {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 767px) {
+      .modal-actions {
+        padding: 12px 16px;
+        gap: 8px;
+      }
+
+      .modal-actions button {
+        flex: 1;
+        min-height: 44px;
+      }
+    }
+
     .modal-footer {
       padding: 16px 24px;
       border-top: 1px solid var(--border);
@@ -3129,18 +3151,26 @@
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 2h11a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-12A2.5 2.5 0 0 1 6.5 2m5 4v3m-3-3v3"/></svg>
           <span>Bookings</span>
         </a>
-        <a class="nav-link" onclick="showPage('tenants')">
-          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/><path d="M12 7v5l3 2"/></svg>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Rentals</div>
+        <a class="nav-link" onclick="showPage('rentalTenants')">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Tenants</span>
         </a>
-        <!-- <a class="nav-link" onclick="showPage('waitlist')">
-          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span>Waitlist</span>
+        <a class="nav-link" onclick="showPage('rentalContracts')">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Contracts</span>
         </a>
-        <a class="nav-link" onclick="showPage('audit-log')">
-          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          <span>Audit Log</span>
-        </a> -->
+        <a class="nav-link" onclick="showPage('rentalPayments')">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+          <span>Payments</span>
+        </a>
+        <a class="nav-link" onclick="showPage('rentalArrears')">
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8M8 18h10M8 22h10"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
+          <span>Arrears</span>
+        </a>
       </div>
 
       <div class="nav-section" id="adminSidebarSection" style="display: none;">
@@ -3787,6 +3817,98 @@
         </div>
       </div>
 
+      <!-- RENTAL TENANTS PAGE -->
+      <div id="rentalTenantsPage" class="page">
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-primary btn-sm" onclick="tenantsManager.openCreateModal()">+ Add Tenant</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rentalTenantsTableBody">
+              <tr><td colspan="6" style="text-align: center; padding: 32px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RENTAL CONTRACTS PAGE -->
+      <div id="rentalContractsPage" class="page">
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-primary btn-sm" onclick="contractsManager.openCreateModal()">+ Add Contract</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tenant</th>
+                <th>Unit</th>
+                <th>Monthly Rent</th>
+                <th>Start Date</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="contractsTableBody">
+              <tr><td colspan="8" style="text-align: center; padding: 32px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RENTAL PAYMENTS PAGE -->
+      <div id="rentalPaymentsPage" class="page">
+        <div class="filter-toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-primary btn-sm" onclick="paymentsManager.openRecordPaymentModal()">+ Record Payment</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tenant</th>
+                <th>Unit</th>
+                <th>Month/Year</th>
+                <th>Amount Paid</th>
+                <th>Outstanding</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="paymentsTableBody">
+              <tr><td colspan="8" style="text-align: center; padding: 32px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RENTAL ARREARS PAGE -->
+      <div id="rentalArrearsPage" class="page">
+        <div id="arrearsDashboardContainer">
+          <div style="text-align: center; padding: 32px;">Loading arrears data...</div>
+        </div>
+      </div>
+
       <!-- ADMIN USERS PAGE -->
       <div id="adminUsersPage" class="page">
         <div class="filter-toolbar">
@@ -3867,9 +3989,25 @@
             <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 2h11a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-12A2.5 2.5 0 0 1 6.5 2m5 4v3m-3-3v3"/></svg>
             <span>Bookings</span>
           </a>
-          <a class="nav-link" onclick="showPage('tenants'); closeDrawer()">
-            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/><path d="M12 7v5l3 2"/></svg>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">Rentals</div>
+          <a class="nav-link" onclick="showPage('rentalTenants'); closeDrawer()">
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <span>Tenants</span>
+          </a>
+          <a class="nav-link" onclick="showPage('rentalContracts'); closeDrawer()">
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Contracts</span>
+          </a>
+          <a class="nav-link" onclick="showPage('rentalPayments'); closeDrawer()">
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+            <span>Payments</span>
+          </a>
+          <a class="nav-link" onclick="showPage('rentalArrears'); closeDrawer()">
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8M8 18h10M8 22h10"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
+            <span>Arrears</span>
           </a>
         </div>
 
@@ -4413,6 +4551,43 @@
   </div>
 </div>
 
+<!-- CONTRACT PAYMENTS MODAL -->
+<div class="modal-overlay" id="contractPaymentsModalOverlay" onclick="if(event.target === this) closeContractPaymentsModal()">
+  <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title">Payments for Contract</h2>
+        <p id="contractPaymentsSubtitle" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">—</p>
+      </div>
+      <button class="modal-close" onclick="closeContractPaymentsModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tenant</th>
+              <th>Unit</th>
+              <th>Month/Year</th>
+              <th>Amount Paid</th>
+              <th>Outstanding</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="contractPaymentsTableBody">
+            <tr><td colspan="7" style="text-align: center; padding: 32px;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeContractPaymentsModal()">Close</button>
+      <!-- <button class="btn btn-primary" onclick="goToAllPayments()">View All Payments</button> -->
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast">
   <span id="toastIcon">✓</span>
@@ -4687,6 +4862,10 @@
 <script src="/js/access-manager.js"></script>
 <script src="/js/dvr-manager.js"></script>
 <script src="/js/admin-users-manager.js"></script>
+<script src="/js/tenants-manager.js"></script>
+<script src="/js/contracts-manager.js"></script>
+<script src="/js/payments-manager.js"></script>
+<script src="/js/arrears-dashboard.js"></script>
 <script>
   // Initialize Feather icons after page load
   document.addEventListener('DOMContentLoaded', function() {

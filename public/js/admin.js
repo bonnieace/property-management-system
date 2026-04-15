@@ -341,7 +341,11 @@ function showPage(page) {
     'bookings': 'bookingsPage',
     'tenants': 'tenantsPage',
     'waitlist': 'waitlistPage',
-    'audit-log': 'auditLogPage'
+    'audit-log': 'auditLogPage',
+    'rentalTenants': 'rentalTenantsPage',
+    'rentalContracts': 'rentalContractsPage',
+    'rentalPayments': 'rentalPaymentsPage',
+    'rentalArrears': 'rentalArrearsPage'
   };
 
   const pageId = pageMap[page];
@@ -372,7 +376,11 @@ function showPage(page) {
     'bookings': 'Bookings',
     'tenants': 'Tenants',
     'waitlist': 'Waitlist',
-    'audit-log': 'Audit Log'
+    'audit-log': 'Audit Log',
+    'rentalTenants': 'Rental Tenants',
+    'rentalContracts': 'Rental Contracts',
+    'rentalPayments': 'Rental Payments',
+    'rentalArrears': 'Payment Arrears'
   };
 
   document.getElementById('pageTitle').textContent = titles[page] || 'Dashboard';
@@ -413,6 +421,11 @@ function showPage(page) {
     if (page === 'access-control') accessManager.init();
     if (page === 'waitlist') loadWaitlist();
     if (page === 'audit-log') loadAuditLog();
+    if (page === 'admin-users') adminUsersManager.init();
+    if (page === 'rentalTenants') tenantsManager.init();
+    if (page === 'rentalContracts') contractsManager.init();
+    if (page === 'rentalPayments') paymentsManager.init();
+    if (page === 'rentalArrears') arrearsDashboard.init();
     if (page === 'calendar-manager') {
       console.log('📅 Calling loadCalendarData()');
       loadCalendarData();
@@ -450,6 +463,18 @@ function showSkeletonForPage(page) {
       break;
     case 'dvr-manager':
       SkeletonLoader.showGridSkeleton('dvrCamerasContainer', 4);
+      break;
+    case 'rentalTenants':
+      SkeletonLoader.showTableSkeleton('rentalTenantsTableBody', 8, 6);
+      break;
+    case 'rentalContracts':
+      SkeletonLoader.showTableSkeleton('contractsTableBody', 8, 8);
+      break;
+    case 'rentalPayments':
+      SkeletonLoader.showTableSkeleton('paymentsTableBody', 8, 8);
+      break;
+    case 'rentalArrears':
+      // Dashboard shows loading text
       break;
   }
 }
@@ -1512,6 +1537,28 @@ function editPricingRule(id) {
 
 function loadUnitCalendar() {
   loadCalendarData();
+}
+
+// ─────────────────────────────────────────────────────
+// CONTRACT PAYMENTS MODAL
+// ─────────────────────────────────────────────────────
+
+function closeContractPaymentsModal() {
+  document.getElementById('contractPaymentsModalOverlay').classList.remove('open');
+}
+
+function goToAllPayments() {
+  // Close modal and navigate to full payments view
+  closeContractPaymentsModal();
+  
+  // Reset filter and show all payments
+  if (paymentsManager) {
+    paymentsManager.filterContractId = null;
+    paymentsManager.loadPayments();
+  }
+  
+  showPage('rentalPayments');
+  localStorage.setItem('adminLastPage', 'rentalPayments');
 }
 
 // ─────────────────────────────────────────────────────
