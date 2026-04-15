@@ -1469,23 +1469,225 @@ const state = {
   rentStep: 1,
   stkTimer: null,
   rentStkTimer: null,
+  units: [],           // Will be populated from API
+  properties: {},      // Grouped by property_id
 };
 
-const unitPrices = {
-  'bnb1b-nyathira': { price: 2000, name: '1-Bed B&B Suite', prop: 'Nyathira Square', type: 'bnb' },
-  'bnb2b-nyathira': { price: 3000, name: '2-Bed B&B Suite', prop: 'Nyathira Square', type: 'bnb' },
-  'bnb2b-kibabu':   { price: 3000, name: '2-Bed B&B Suite', prop: 'Kibabu Square', type: 'bnb' },
-};
-const rentPrices = {
-  'bedsit': 6500,
-  '1bed': 12000,
-  '2bed': 13500,
-};
-const rentNames = {
-  'bedsit': 'Bedsitter',
-  '1bed': '1-Bedroom Apartment',
-  '2bed': '2-Bedroom Apartment',
-};
+// Legacy price mappings - will be populated from API data
+let unitPrices = {};
+let rentPrices = {};
+let rentNames = {};
+
+// ── FETCH UNITS FROM API ──
+async function loadUnitsFromAPI() {
+  try {
+    const response = await fetch(`${API_BASE}/api/calendar/units`);
+    const data = await response.json();
+
+    if (!data.ok || !data.data) {
+      console.error('Failed to load units:', data.error);
+      return false;
+    }
+
+    state.units = data.data;
+    console.log(`✓ Loaded ${state.units.length} units from API`);
+
+    // Build units map by property
+    state.unitsByProperty = {};
+    state.units.forEach(unit => {
+      if (!state.unitsByProperty[unit.property_id]) {
+        state.unitsByProperty[unit.property_id] = [];
+      }
+      state.unitsByProperty[unit.property_id].push(unit);
+    });
+
+    // Build legacy price mappings for backward compatibility
+    unitPrices = {};
+    rentPrices = {};
+    rentNames = {};
+
+    state.units.forEach(unit => {
+      // B&B units get individual price entries
+      if (unit.type === 'bnb') {
+        unitPrices[unit.unit_id] = {
+          price: unit.base_price_kes,
+          name: unit.name,
+          prop: unit.property_id,
+          type: 'bnb'
+        };
+      } else {
+        // Rental units group by type
+        const typeKey = unit.type; // 'bedsit', '1bed', '2bed'
+        if (!rentPrices[typeKey]) {
+          rentPrices[typeKey] = unit.base_price_kes;
+          rentNames[typeKey] = unit.name;
+        }
+      }
+    });
+
+    console.log('✓ Price mappings updated');
+    return true;
+  } catch (err) {
+    console.error('Error loading units:', err);
+    return false;
+  }
+}
+
+// ── FETCH PROPERTIES FROM API ──
+async function loadPropertiesFromAPI() {
+  try {
+    const response = await fetch(`${API_BASE}/api/calendar/properties`);
+    const data = await response.json();
+
+    if (!data.ok || !data.data) {
+      console.error('Failed to load properties:', data.error);
+      return false;
+    }
+
+    state.properties = {};
+    data.data.forEach(prop => {
+      state.properties[prop.property_id] = prop;
+    });
+
+    console.log(`✓ Loaded ${Object.keys(state.properties).length} properties from API`);
+    return true;
+  } catch (err) {
+    console.error('Error loading properties:', err);
+    return false;
+  }
+}
+
+// ── RENDER PROPERTIES SECTION ──
+async function renderPropertiesSection() {
+  const tabsContainer = document.querySelector('.property-tabs');
+  if (!tabsContainer) return;
+
+  // Clear existing tabs
+  tabsContainer.querySelectorAll('.prop-tab').forEach(t => t.remove());
+
+  // Find and remove old panels (all property-panel divs in this section)
+  const parentContainer = tabsContainer.closest('.container');
+  if (parentContainer) {
+    parentContainer.querySelectorAll('.property-panel').forEach(p => p.remove());
+  }
+
+  // Get unique properties sorted (from properties API data)
+  const propertyIds = Object.keys(state.properties).sort();
+
+  // Render tabs
+  propertyIds.forEach((propId, idx) => {
+    const property = state.properties[propId];
+    const tab = document.createElement('button');
+    tab.className = `prop-tab ${idx === 0 ? 'active' : ''}`;
+    tab.textContent = property.name;
+    tab.onclick = function() { switchProp(propId, this); };
+    tabsContainer.appendChild(tab);
+  });
+
+  // Render and insert panels after tabs
+  propertyIds.forEach((propId, idx) => {
+    const property = state.properties[propId];
+    const units = state.unitsByProperty[propId] || [];
+    const panel = createPropertyPanel(property, units);
+    if (idx === 0) panel.classList.add('active');
+    tabsContainer.parentNode.appendChild(panel);
+  });
+
+  console.log('✓ Properties section rendered');
+}
+
+// ── CREATE PROPERTY PANEL ──
+function createPropertyPanel(property, units) {
+  const panel = document.createElement('div');
+  panel.className = 'property-panel';
+  panel.id = `panel-${property.property_id}`;
+
+  // Format phone number with link
+  const phoneLink = `tel:${property.contact_phone}`;
+
+  // Property hero section with dynamic data
+  const heroHTML = `
+    <div class="prop-hero reveal">
+      <div>
+        <span class="section-tag">${property.name}</span>
+        <h3 style="margin-bottom:12px">${property.tagline}</h3>
+        <p style="color:var(--text-muted);font-size:.92rem;margin-bottom:16px">
+          ${property.description}
+        </p>
+        <ul class="prop-features">
+          ${property.features && Array.isArray(property.features) 
+            ? property.features.map(feature => `<li>${feature}</li>`).join('')
+            : '<li>Contact for amenities</li>'}
+        </ul>
+        <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+          ${property.maps_url ? `<a href="${property.maps_url}" target="_blank" class="btn btn-outline btn-sm" style="color:var(--charcoal);border-color:var(--border-strong)">📍 View on Maps</a>` : ''}
+          <a href="${phoneLink}" class="btn btn-sm" style="background:var(--cream);color:var(--charcoal);border:1px solid var(--border-strong)">📞 ${property.contact_person}</a>
+        </div>
+      </div>
+      <div class="prop-hero-img">
+        <img src="${property.hero_image_url || 'https://nyathirahomes.com/assets/images/placeholder.jpg'}" alt="${property.name} property"/>
+      </div>
+    </div>
+  `;
+
+  // Listing cards
+  const listingsHTML = `<div class="listings-grid">${units.map((unit, idx) => createListingCard(unit, idx)).join('')}</div>`;
+
+  panel.innerHTML = heroHTML + listingsHTML;
+  return panel;
+}
+
+// ── CREATE LISTING CARD ──
+function createListingCard(unit, idx) {
+  const primaryImage = unit.images?.[0]?.image_url || 'https://nyathirahomes.com/assets/images/placeholder.jpg';
+  const isBnB = unit.type === 'bnb';
+  const priceLabel = isBnB ? '/ night' : '/ month';
+  const badge = isBnB ? '<span class="listing-badge badge-airbnb">Airbnb</span>' : '<span class="listing-badge badge-rent">For Rent</span>';
+  
+  // Use appropriate modal for B&B vs Rental
+  const mainClickHandler = isBnB ? `openBookingModal('${unit.unit_id}','${unit.property_id}')` : `openRentModal('${unit.unit_id}','${unit.property_id}')`;
+  const buttonLabel = isBnB ? 'Book' : 'Rent Now';
+  const buttonClass = isBnB ? 'btn-sm' : 'btn-rust btn-sm';
+  const bookButtonHandler = isBnB ? `openBookingModal('${unit.unit_id}','${unit.property_id}')` : `openRentModal('${unit.unit_id}','${unit.property_id}')`;
+
+  return `
+    <div class="listing-card reveal${idx % 3 === 0 ? '' : idx % 3 === 1 ? ' reveal-delay-1' : ' reveal-delay-2'}" onclick="${mainClickHandler}">
+      <div class="listing-img-wrap">
+        <img src="${primaryImage}" alt="${unit.name}"/>
+        ${badge}
+        <span class="badge-available">Available</span>
+      </div>
+      <div class="listing-body">
+        <div class="listing-price">Ksh ${unit.base_price_kes.toLocaleString()} <span>${priceLabel}</span></div>
+        <div class="listing-title">${unit.name}</div>
+        <div class="listing-location">📍 ${getPropertyName(unit.property_id)}</div>
+        <div class="listing-specs">
+          <div class="spec-item"><span class="spec-icon">🛏</span> ${unit.bedrooms === 0 ? 'Studio' : unit.bedrooms + ' bed' + (unit.bedrooms > 1 ? 's' : '')}</div>
+          <div class="spec-item"><span class="spec-icon">🚿</span> ${unit.bathrooms} bath${unit.bathrooms > 1 ? 's' : ''}</div>
+          <div class="spec-item"><span class="spec-icon">👥</span> ${isBnB ? '1–' + unit.max_guests + ' guests' : 'Rental'}</div>
+        </div>
+        <div class="listing-actions">
+          ${isBnB 
+            ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openCalendarForListing('${unit.unit_id}','${unit.property_id}')">📅 Check Dates</button>`
+            : `<button class="btn btn-sm" style="background:var(--cream);color:var(--charcoal)" onclick="event.stopPropagation();openContactWA('${unit.property_id}')">WhatsApp</button>`
+          }
+          <button class="btn ${buttonClass}" style="${isBnB ? 'background:var(--cream);color:var(--charcoal)' : ''}" onclick="event.stopPropagation();${bookButtonHandler}">${buttonLabel}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── HELPER FUNCTIONS ──
+function getPropertyName(propId) {
+  return propId === 'nyathira' ? 'Nyathira Square, Ngoigwa' : 'Kibabu Square';
+}
+
+function getPropertyImage(propId) {
+  return propId === 'nyathira'
+    ? 'https://nyathirahomes.com/assets/images/DSC_0544.webp'
+    : 'https://nyathirahomes.com/assets/images/DSC_0617.webp';
+}
 
 // ── NAV ──
 window.addEventListener('scroll', () => {
@@ -2058,7 +2260,173 @@ function showToast(msg, icon) {
   setTimeout(() => t.classList.remove('show'), 4000);
 }
 
+// ── SELECT PRICING TIER UNITS ──
+// Selects units for pricing page: budget, mid, premium for B&B and rental categories
+function selectPricingTierUnits() {
+  console.log('[selectPricingTierUnits] Starting with state.units.length =', state.units.length);
+  
+  const bnbUnits = state.units.filter(u => u.type === 'bnb').sort((a, b) => a.base_price_kes - b.base_price_kes);
+  const rentalUnits = state.units.filter(u => u.type !== 'bnb').sort((a, b) => a.base_price_kes - b.base_price_kes);
+  
+  console.log(`[selectPricingTierUnits] BnB units: ${bnbUnits.length}, Rental units: ${rentalUnits.length}`);
+  console.log('[selectPricingTierUnits] BnB units:', bnbUnits.map(u => `${u.name} (${u.base_price_kes})`));
+  console.log('[selectPricingTierUnits] Rental units:', rentalUnits.map(u => `${u.name} (${u.base_price_kes})`));
+  
+  const selected = [];
+  
+  // B&B: Budget (cheapest), Mid (middle), Premium (most expensive)
+  if (bnbUnits.length >= 1) selected.push({ unit: bnbUnits[0], tier: 'budget', category: 'bnb' });
+  if (bnbUnits.length >= 2) selected.push({ unit: bnbUnits[Math.floor(bnbUnits.length / 2)], tier: 'mid', category: 'bnb' });
+  if (bnbUnits.length >= 1) selected.push({ unit: bnbUnits[bnbUnits.length - 1], tier: 'premium', category: 'bnb', featured: true });
+  
+  // Rental: Budget (bedsit), Mid (1bed), Premium (2bed)
+  if (rentalUnits.length >= 1) selected.push({ unit: rentalUnits[0], tier: 'budget', category: 'rental' });
+  if (rentalUnits.length >= 2) selected.push({ unit: rentalUnits[1], tier: 'mid', category: 'rental' });
+  if (rentalUnits.length >= 3) selected.push({ unit: rentalUnits[rentalUnits.length - 1], tier: 'premium', category: 'rental', featured: true });
+  
+  console.log(`[selectPricingTierUnits] Returning ${selected.length} selected units`);
+  return selected;
+}
+
+// ── GENERATE PRICING CARD FEATURES ──
+// Generates unit-specific features from property amenities and unit data
+function generatePricingFeatures(unit, propertyData) {
+  const isBnB = unit.type === 'bnb';
+  
+  if (isBnB) {
+    // For B&B: mix of property features relevant to B&B + unit specifics
+    const bnbKeywords = ['breakfast', 'wifi', 'wi-fi', 'smart tv', 'security', 'parking', 'balcony', 'view'];
+    const propertyFeatures = propertyData?.features || [];
+    const filtered = propertyFeatures.filter(f => 
+      bnbKeywords.some(kw => f.toLowerCase().includes(kw))
+    ).slice(0, 3);
+    
+    // Add generic B&B feature
+    filtered.push(`Up to ${unit.max_guests} guests`);
+    return filtered.slice(0, 4);
+  } else {
+    // For rental: generate from unit fields
+    const features = [];
+    if (unit.bedrooms === 0) {
+      features.push('Self-contained studio');
+    } else {
+      features.push(`${unit.bedrooms} bed${unit.bedrooms > 1 ? 's' : ''}, ${unit.bathrooms} bath${unit.bathrooms > 1 ? 's' : ''}`);
+    }
+    features.push('Utilities included');
+    if (unit.water_deposit_kes > 0) {
+      features.push(`+Ksh ${unit.water_deposit_kes.toLocaleString()} water deposit`);
+    }
+    features.push('1 month deposit req.');
+    return features;
+  }
+}
+
+// ── CREATE PRICING CARD ──
+function createPricingCard(selectedUnit, idx) {
+  const { unit, tier, featured } = selectedUnit;
+  const propertyData = state.properties[unit.property_id];
+  const isBnB = unit.type === 'bnb';
+  const categoryLabel = isBnB ? 'Airbnb' : 'Long-term Rental';
+  const priceLabel = isBnB ? 'per night' : 'per month';
+  const features = generatePricingFeatures(unit, propertyData);
+  
+  const cardClickHandler = isBnB 
+    ? `openBookingModal('${unit.unit_id}','${unit.property_id}')`
+    : `openRentModal('${unit.unit_id}','${unit.property_id}')`;
+  const buttonLabel = isBnB ? 'Book this unit' : 'Start rental process';
+  const buttonClass = isBnB ? 'btn-primary' : 'btn-outline';
+  const buttonStyle = isBnB ? '' : "color:#fff;border-color:rgba(255,255,255,.25);";
+  
+  return `
+    <div class="pricing-card ${featured ? 'featured' : ''} reveal ${idx > 0 ? `reveal-delay-${(idx - 1) % 3 ? (idx - 1) % 3 : ''}` : ''}" onclick="${cardClickHandler}">
+      <div class="pricing-type">${categoryLabel} · ${propertyData?.name || unit.property_id}</div>
+      <div class="pricing-name">${unit.name}</div>
+      <div class="pricing-property">${propertyData?.name || unit.property_id}</div>
+      <div class="pricing-amount"><sup>Ksh</sup>${unit.base_price_kes.toLocaleString()}</div>
+      <div class="pricing-period">${priceLabel}</div>
+      <ul class="pricing-features">
+        ${features.map(f => `<li>${f}</li>`).join('')}
+      </ul>
+      <button class="btn ${buttonClass}" style="${buttonStyle}width:100%;justify-content:center">${buttonLabel}</button>
+    </div>
+  `;
+}
+
+// ── RENDER PRICING SECTION ──
+function renderPricingSection() {
+  const pricingGrid = document.querySelector('.pricing-grid');
+  console.log('[renderPricingSection] Found pricing grid:', !!pricingGrid);
+  if (!pricingGrid) {
+    console.error('[renderPricingSection] .pricing-grid not found!');
+    return;
+  }
+  
+  try {
+    const selectedUnits = selectPricingTierUnits();
+    console.log(`[renderPricingSection] Selected ${selectedUnits.length} units:`, selectedUnits.map(su => su.unit.name));
+    
+    const html = selectedUnits
+      .map((su, idx) => createPricingCard(su, idx))
+      .join('');
+    
+    console.log('[renderPricingSection] Generated HTML length:', html.length);
+    pricingGrid.innerHTML = html;
+    
+    // Verify it was inserted
+    const cardCount = pricingGrid.querySelectorAll('.pricing-card').length;
+    console.log(`[renderPricingSection] ${cardCount} cards inserted into DOM`);
+    
+    // Add .visible class to trigger reveal animations
+    pricingGrid.querySelectorAll('.pricing-card.reveal').forEach((card, idx) => {
+      setTimeout(() => card.classList.add('visible'), 50 + idx * 80);
+    });
+    
+    console.log(`✓ Pricing section rendered with ${cardCount} cards visible`);
+    
+    if (cardCount === 0) {
+      console.warn('[renderPricingSection] WARNING: Generated cards but none visible!');
+    }
+  } catch (err) {
+    console.error('[renderPricingSection] ERROR:', err);
+  }
+}
+
 // ── INIT ──
+// Load units and properties from API and render dynamic content
+(async () => {
+  try {
+    // Load properties FIRST (smaller payload)
+    const propsSuccess = await loadPropertiesFromAPI();
+    if (!propsSuccess) {
+      console.error('✗ Failed to load properties');
+      return;
+    }
+
+    // Then load units (can be larger)
+    const unitsSuccess = await loadUnitsFromAPI();
+    if (!unitsSuccess) {
+      console.error('✗ Failed to load units');
+      return;
+    }
+
+    // Render dynamic pricing section
+    renderPricingSection();
+
+    // Now render with both data available
+    await renderPropertiesSection();
+    
+    // Trigger first tab's onclick to show listings
+    const firstTab = document.querySelector('.prop-tab.active');
+    if (firstTab) {
+      setTimeout(() => firstTab.click(), 100);
+    }
+
+    console.log('✓ Dynamic properties & units fully loaded');
+  } catch (err) {
+    console.error('✗ Error during initialization:', err);
+  }
+})();
+
 // Set default checkin to today
 const today = new Date();
 const yyyy = today.getFullYear();
