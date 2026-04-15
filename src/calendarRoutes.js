@@ -12,15 +12,71 @@ const { calculatePrice } = require('./priceCalculator');
 
 /**
  * GET /api/calendar/units
- * Get all units with basic info
+ * Get all units with basic info and images
  */
 router.get('/units', async (req, res) => {
   try {
-    const units = await db('units')
-      .select('id', 'unit_id', 'property_id', 'name', 'type', 'bedrooms', 'bathrooms', 'max_guests', 'base_price_kes', 'status')
-      .where('status', 'active')
-      .orderBy('property_id', 'asc')
-      .orderBy('base_price_kes', 'asc');
+    // Fetch all active units
+    const unitsData = await db('units')
+      .select(
+        'units.id',
+        'units.unit_id',
+        'units.property_id',
+        'units.name',
+        'units.type',
+        'units.bedrooms',
+        'units.bathrooms',
+        'units.max_guests',
+        'units.base_price_kes',
+        'units.description',
+        'units.status',
+        'unit_images.id as image_id',
+        'unit_images.image_url',
+        'unit_images.alt_text',
+        'unit_images.display_order'
+      )
+      .leftJoin('unit_images', 'units.id', 'unit_images.unit_id')
+      .where('units.status', 'active')
+      .orderBy('units.property_id', 'asc')
+      .orderBy('units.base_price_kes', 'asc')
+      .orderBy('unit_images.display_order', 'asc');
+
+    // Group images by unit_id
+    const unitsMap = {};
+    unitsData.forEach(row => {
+      const unitId = row.id;
+      
+      if (!unitsMap[unitId]) {
+        // First time seeing this unit - create it
+        unitsMap[unitId] = {
+          id: row.id,
+          unit_id: row.unit_id,
+          property_id: row.property_id,
+          name: row.name,
+          type: row.type,
+          bedrooms: row.bedrooms,
+          bathrooms: row.bathrooms,
+          max_guests: row.max_guests,
+          base_price_kes: row.base_price_kes,
+          description: row.description,
+          status: row.status,
+          images: []
+        };
+      }
+
+      // Add image to unit's images array if image data exists
+      if (row.image_id) {
+        unitsMap[unitId].images.push({
+          id: row.image_id,
+          image_url: row.image_url,
+          alt_text: row.alt_text,
+          display_order: row.display_order
+        });
+      }
+    });
+
+    // Convert map to array
+    const units = Object.values(unitsMap);
 
     res.json({
       ok: true,
@@ -252,6 +308,65 @@ router.get('/pricing/:unitId', async (req, res) => {
     });
   } catch (err) {
     console.error('[GET /api/calendar/pricing]', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/calendar/properties
+ * Get all properties with display details (public endpoint)
+ */
+router.get('/properties', async (req, res) => {
+  try {
+    const properties = await db('properties')
+      .select(
+        'id',
+        'property_id',
+        'name',
+        'description',
+        'tagline',
+        'address',
+        'city',
+        'country',
+        'contact_person',
+        'contact_phone',
+        'email',
+        'features',
+        'hero_image_url',
+        'maps_url',
+        'latitude',
+        'longitude',
+        'status'
+      )
+      .where('status', 'active')
+      .orderBy('property_id', 'asc');
+
+    // Parse JSON features field - handle both string and object cases
+    const propertiesWithParsedFeatures = properties.map(prop => {
+      let features = [];
+      if (prop.features) {
+        if (typeof prop.features === 'string') {
+          try {
+            features = JSON.parse(prop.features);
+          } catch (e) {
+            console.warn('[Properties] Failed to parse features:', e.message);
+          }
+        } else {
+          features = prop.features;
+        }
+      }
+      return {
+        ...prop,
+        features
+      };
+    });
+
+    res.json({
+      ok: true,
+      data: propertiesWithParsedFeatures,
+    });
+  } catch (err) {
+    console.error('[GET /api/calendar/properties]', err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
