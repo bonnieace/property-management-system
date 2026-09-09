@@ -50,7 +50,7 @@ Tests use a disposable in-memory PostgreSQL-compatible PGlite database by defaul
 
 ## Deployment and boundaries
 
-Read [docs/production-readiness.md](docs/production-readiness.md) before upgrading an existing installation. Migrations 018–019 change tenant ownership and payment accounting and require a tested backup/restore plan.
+Read [docs/production-readiness.md](docs/production-readiness.md) before upgrading an existing installation. Run `npm run upgrade:preflight` against a restored copy of the existing database to check historical relationships and duplicate accounting periods without changing data. Migrations 018–019 change tenant ownership and payment accounting and require a tested backup/restore plan.
 
 Website editing supports text, amenities, policies, contact details, gallery and externally hosted HTTPS image URLs. File uploads and custom domains are not implemented. Automated SMS/email, water-tank telemetry, door access and CCTV integrations are not connected; simulated device screens are no longer loaded. Account recovery is handled by a platform administrator through account management; self-service reset email and email verification are not implemented. The branch supplies production hardening and core property workflows; it is not evidence of a completed deployment or provider certification.
 

@@ -11,7 +11,8 @@
     "seed:run": "knex seed:run",
     "test": "node --test test/*.test.js",
     "check": "node scripts/check-js.js",
-    "admin:bootstrap": "node scripts/bootstrap-admin.js"
+    "admin:bootstrap": "node scripts/bootstrap-admin.js",
+    "upgrade:preflight": "node scripts/upgrade-preflight.js"
   },
   "dependencies": {
     "africastalking": "^0.7.9",
