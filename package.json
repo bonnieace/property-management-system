@@ -1,26 +1,44 @@
 {
   "name": "nyathira-mpesa",
   "version": "1.0.0",
-  "description": "Nyathira Homes — M-Pesa STK Push backend",
+  "description": "Property workspaces, websites, bookings and rental management",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
-    "seed:run": "knex seed:run"
+    "seed:run": "knex seed:run",
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check-js.js",
+    "admin:bootstrap": "node scripts/bootstrap-admin.js"
   },
   "dependencies": {
-    "africastalking": "^0.5.2",
-    "axios": "^1.7.9",
+    "africastalking": "^0.7.9",
+    "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "feather-icons": "^4.29.2",
-    "jsonwebtoken": "^9.0.3",
+    "helmet": "^8.3.0",
     "knex": "^3.1.0",
     "pg": "^8.11.3",
-    "uuid": "^11.0.5"
+    "uuid": "^11.0.5",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "jsdom": "^30.0.1",
+    "supertest": "^7.2.2"
+  },
+  "overrides": {
+    "axios": "$axios",
+    "lodash": "^4.18.1",
+    "joi": "^18.2.8",
+    "qs": "^6.16.0"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

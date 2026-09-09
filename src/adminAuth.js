@@ -1,230 +1,52 @@
-/**
- * ADMIN AUTHENTICATION SYSTEM
- * JWT-based authentication for admin users
- * Uses database for credential storage with bcrypt hashing
- */
-
-const jwt = require('jsonwebtoken');
+const crypto = require('node:crypto');
 const bcrypt = require('bcrypt');
 const db = require('./db');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'nyathira-admin-secret-key-change-in-production';
-const JWT_EXPIRY = '7d';
-
-/**
- * Get admin user with their assigned properties
- */
-async function getAdminWithProperties(adminId) {
-  try {
-    const admin = await db('admin_users').where('id', adminId).first();
-    
-    if (!admin) {
-      return null;
-    }
-
-    let properties = [];
-    
-    // Only property_admin role has property assignments
-    if (admin.role === 'property_admin') {
-      properties = await db('admin_properties')
-        .join('properties', 'admin_properties.property_id', '=', 'properties.id')
-        .where('admin_properties.admin_id', adminId)
-        .select('properties.id', 'properties.property_id', 'properties.name');
-    }
-
-    return {
-      ...admin,
-      properties
-    };
-  } catch (err) {
-    console.error('Error getting admin with properties:', err);
-    return null;
-  }
+const { route, hash, HttpError } = require('./http');
+const COOKIE = 'pms_session';
+const SESSION_MS = 8 * 60 * 60 * 1000;
+const cookieOptions = () => ({ httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/', maxAge: SESSION_MS });
+const dummyHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 12);
+async function getAdminWithProperties(id) {
+  const admin = await db('admin_users').where({ id, status: 'active' }).select('id', 'username', 'name', 'email', 'role', 'status').first();
+  if (!admin) return null;
+  admin.properties = await db('admin_properties as m').join('properties as p', 'm.property_id', 'p.id')
+    .where('m.admin_id', id).where('p.status', 'active').select('p.id', 'p.property_id', 'p.name', 'm.is_owner');
+  return admin;
 }
-
-/**
- * Generate JWT token for admin user
- */
-function generateToken(admin) {
-  const token = jwt.sign(
-    {
-      id: admin.id,
-      username: admin.username,
-      name: admin.name,
-      email: admin.email,
-      role: admin.role,
-      properties: admin.properties || [],
-      iat: Math.floor(Date.now() / 1000)
-    },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRY }
-  );
-
-  return token;
+async function createSession(adminId, res) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  await db('admin_sessions').insert({ token_hash: hash(token), admin_id: adminId, expires_at: new Date(Date.now() + SESSION_MS) });
+  res.cookie(COOKIE, token, cookieOptions());
+  return getAdminWithProperties(adminId);
 }
-
-/**
- * Verify JWT token
- */
-function verifyToken(token) {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    return decoded;
-  } catch (err) {
-    return null;
-  }
+function sessionToken(req) {
+  const cookie = req.headers.cookie?.split(';').map(v => v.trim()).find(v => v.startsWith(`${COOKIE}=`));
+  return cookie?.slice(COOKIE.length + 1);
 }
-
-/**
- * Authenticate admin user with username/password
- */
-async function authenticateUser(username, password) {
-  try {
-    // Query database for admin user
-    const admin = await db('admin_users')
-      .where('username', username)
-      .where('status', 'active')
-      .first();
-    
-    if (!admin) {
-      console.log(`[authenticateUser] User not found or inactive: ${username}`);
-      return { ok: false, error: 'Invalid username or password' };
-    }
-
-    console.log(`[authenticateUser] User found. Comparing password...`);
-    console.log(`[authenticateUser] Provided password: "${password}"`);
-    console.log(`[authenticateUser] Hash: ${admin.password_hash.substring(0, 40)}...`);
-
-    // Compare password with bcrypt hash
-    const passwordMatch = await bcrypt.compare(password, admin.password_hash);
-    
-    console.log(`[authenticateUser] Password match result: ${passwordMatch}`);
-    
-    if (!passwordMatch) {
-      console.log(`[authenticateUser] Password mismatch for user: ${username}`);
-      return { ok: false, error: 'Invalid username or password' };
-    }
-
-    // Update last_login
-    await db('admin_users').where('id', admin.id).update({
-      last_login: db.fn.now()
-    });
-
-    // Get admin with properties
-    const adminWithProps = await getAdminWithProperties(admin.id);
-    const token = generateToken(adminWithProps);
-
-    return {
-      ok: true,
-      token,
-      user: {
-        id: adminWithProps.id,
-        username: adminWithProps.username,
-        name: adminWithProps.name,
-        email: adminWithProps.email,
-        role: adminWithProps.role,
-        properties: adminWithProps.properties
-      }
-    };
-  } catch (err) {
-    console.error('Error authenticating user:', err);
-    return { ok: false, error: 'Authentication error' };
-  }
+const adminAuthMiddleware = route(async (req, res, next) => {
+  if (req.admin) return next();
+  const token = sessionToken(req);
+  const session = token && /^[A-Za-z0-9_-]{43}$/.test(token)
+    ? await db('admin_sessions').where('token_hash', hash(token)).where('expires_at', '>', new Date()).first() : null;
+  const admin = session && await getAdminWithProperties(session.admin_id);
+  if (!admin) throw new HttpError(401, 'Your session has expired. Please sign in again.');
+  req.admin = admin; req.sessionHash = hash(token);
+  res.set('Cache-Control', 'no-store'); next();
+});
+async function authenticateUser(username, password, res) {
+  const admin = await db('admin_users').whereRaw('lower(username) = ?', [username.toLowerCase()]).first();
+  const matched = await bcrypt.compare(password, admin?.password_hash || dummyHash);
+  if (!matched || admin?.status !== 'active') throw new HttpError(401, 'Invalid username or password');
+  await db('admin_users').where({ id: admin.id }).update({ last_login: db.fn.now() });
+  return createSession(admin.id, res);
 }
-
-/**
- * Middleware: Check if request has valid admin token
- */
-function adminAuthMiddleware(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ ok: false, error: 'Missing authorization token' });
-  }
-
-  const decoded = verifyToken(token);
-
-  if (!decoded) {
-    return res.status(401).json({ ok: false, error: 'Invalid or expired token' });
-  }
-
-  req.admin = decoded;
-  next();
-}
-
-/**
- * Middleware: Check if admin has access to specific property
- * Full-admin role: always allowed
- * Property-admin role: must have property assignment in admin_properties
- */
-async function propertyAccessMiddleware(req, res, next) {
-  const admin = req.admin;
-  
-  // Full-access admins skip property validation
-  if (admin.role === 'full_admin') {
-    return next();
-  }
-
-  // Property-specific admins can only access assigned properties
-  const requestedProperty = req.query.property || req.body.property || req.params.propertyId;
-  
-  if (requestedProperty) {
-    // Check if admin has access to this property
-    const hasAccess = admin.properties && admin.properties.some(p => 
-      p.property_id === requestedProperty || String(p.id) === String(requestedProperty)
-    );
-
-    if (!hasAccess) {
-      return res.status(403).json({ ok: false, error: 'Access denied: insufficient permissions' });
-    }
-  }
-
-  next();
-}
-
-/**
- * Middleware: Check if admin is full-access only
- */
 function fullAccessMiddleware(req, res, next) {
-  const admin = req.admin;
-
-  if (admin.role !== 'full_admin') {
-    return res.status(403).json({ ok: false, error: 'Access denied: full admin access required' });
-  }
-
+  if (req.admin.role !== 'full_admin') return next(new HttpError(403, 'Platform administrator access required'));
   next();
 }
-
-/**
- * Middleware: Check if admin has specific permission
- */
-function permissionMiddleware(permission) {
-  return (req, res, next) => {
-    const admin = req.admin;
-
-    // All authenticated admins can read
-    if (permission === 'read') {
-      return next();
-    }
-
-    // Full-admin can write, property-admin can also write (property-scoped)
-    if (permission === 'write') {
-      return next();
-    }
-
-    return res.status(403).json({ ok: false, error: 'Access denied: insufficient permissions' });
-  };
+async function logout(req, res) {
+  const token = sessionToken(req);
+  if (token) await db('admin_sessions').where('token_hash', hash(token)).delete();
+  res.clearCookie(COOKIE, { ...cookieOptions(), maxAge: undefined }); res.json({ ok: true });
 }
-
-module.exports = {
-  generateToken,
-  verifyToken,
-  authenticateUser,
-  getAdminWithProperties,
-  adminAuthMiddleware,
-  propertyAccessMiddleware,
-  fullAccessMiddleware,
-  permissionMiddleware,
-  JWT_SECRET,
-  JWT_EXPIRY
-};
+module.exports = { adminAuthMiddleware, fullAccessMiddleware, getAdminWithProperties, createSession, authenticateUser, logout };

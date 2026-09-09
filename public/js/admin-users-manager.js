@@ -12,12 +12,12 @@ const adminUsersManager = {
    * Initialize admin users manager
    */
   async init() {
-    console.log('👥 [AdminUsersManager.init] Initializing admin users manager');
-    console.log('👥 [AdminUsersManager.init] Current state.user:', state.user);
+
+
     await this.loadProperties();
     await this.loadAdmins();
     this.attachEventListeners();
-    console.log('👥 [AdminUsersManager.init] Initialization complete');
+
   },
 
   /**
@@ -44,21 +44,19 @@ const adminUsersManager = {
    */
   async loadAdmins() {
     try {
-      console.log('👥 [AdminUsersManager.loadAdmins] Fetching admins from API...');
+
       const response = await fetch(`${API_BASE}/api/admin/admins`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${state.token}` }
       });
 
-      console.log('👥 [AdminUsersManager.loadAdmins] Response status:', response.status);
-      
       if (!response.ok) {
         console.error('👥 [AdminUsersManager.loadAdmins] Failed to load admins:', response.status);
         return;
       }
 
       const result = await response.json();
-      console.log('👥 [AdminUsersManager.loadAdmins] Admins fetched:', result.data);
+
       this.admins = result.data || [];
       this.renderAdminTable();
     } catch (err) {
@@ -70,7 +68,7 @@ const adminUsersManager = {
    * Render admin users table
    */
   renderAdminTable() {
-    console.log('👥 [AdminUsersManager.renderAdminTable] Rendering table with', this.admins.length, 'admins');
+
     const tbody = document.getElementById('adminUsersTableBody');
     if (!tbody) {
       console.warn('❌ [AdminUsersManager.renderAdminTable] adminUsersTableBody element not found!');
@@ -85,9 +83,9 @@ const adminUsersManager = {
     tbody.innerHTML = this.admins.map(admin => `
       <tr>
         <td>${admin.id}</td>
-        <td><strong>${admin.username}</strong></td>
-        <td>${admin.name}</td>
-        <td>${admin.email}</td>
+        <td><strong>${escapeHtml(admin.username)}</strong></td>
+        <td>${escapeHtml(admin.name)}</td>
+        <td>${escapeHtml(admin.email)}</td>
         <td>${admin.role === 'full_admin' ? 'Full Access' : 'Property Admin'}</td>
         <td>
           <span style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; background: ${admin.status === 'active' ? 'rgba(122,140,110,.1); color: var(--sage)' : 'rgba(196,98,45,.1); color: var(--rust)'};">
@@ -95,7 +93,7 @@ const adminUsersManager = {
           </span>
         </td>
         <td>
-          ${admin.role === 'property_admin' ? (admin.properties && admin.properties.length > 0 ? admin.properties.map(p => p.name).join(', ') : '—') : 'Full Access'}
+          ${admin.role === 'property_admin' ? (admin.properties && admin.properties.length > 0 ? admin.properties.map(p => escapeHtml(p.name)).join(', ') : '—') : 'Full Access'}
         </td>
         <td>${admin.last_login ? new Date(admin.last_login).toLocaleDateString() : '—'}</td>
         <td>
@@ -146,7 +144,7 @@ const adminUsersManager = {
     
     const form = document.getElementById('adminForm');
     if (form) {
-      document.getElementById('adminFormTitle').textContent = `Edit ${admin.name}`;
+      document.getElementById('adminFormTitle').textContent = `Edit ${escapeHtml(admin.name)}`;
       document.getElementById('adminUsernameInput').value = admin.username;
       document.getElementById('adminNameInput').value = admin.name;
       document.getElementById('adminEmailInput').value = admin.email;
@@ -210,7 +208,7 @@ const adminUsersManager = {
 
               <div class="form-group" id="adminPasswordGroup">
                 <label>Password ${!this.currentAdminId ? '*' : ''}</label>
-                <input type="password" id="adminPasswordInput" placeholder="Minimum 8 characters" ${!this.currentAdminId ? 'required' : ''}>
+                <input type="password" id="adminPasswordInput" placeholder="Minimum 12 characters" ${!this.currentAdminId ? 'required' : ''}>
                 <small style="color: var(--text-muted);" id="adminPasswordHelper"></small>
               </div>
 
@@ -253,8 +251,8 @@ const adminUsersManager = {
       return;
     }
 
-    if (password && password.length < 8) {
-      alert('Password must be at least 8 characters');
+    if (password && password.length < 12) {
+      alert('Password must be at least 12 characters');
       return;
     }
 
@@ -334,7 +332,7 @@ const adminUsersManager = {
       <div class="modal-overlay" id="propertyAssignModal" onclick="if(event.target===this) adminUsersManager.closePropertyAssignModal()">
         <div class="modal" style="max-width: 500px;">
           <div class="modal-header">
-            <h2 class="modal-title">Assign Properties to ${admin.name}</h2>
+            <h2 class="modal-title">Assign Properties to ${escapeHtml(admin.name)}</h2>
             <button class="modal-close" onclick="adminUsersManager.closePropertyAssignModal()">&times;</button>
           </div>
           <div class="modal-body">
@@ -342,7 +340,7 @@ const adminUsersManager = {
               ${this.allProperties.map(prop => `
                 <label style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;">
                   <input type="checkbox" data-property-id="${prop.id}" ${assignedPropertyIds.includes(prop.id) ? 'checked' : ''}>
-                  <span>${prop.name}</span>
+                  <span>${escapeHtml(prop.name)}</span><select aria-label="Access for ${escapeHtml(prop.name)}" data-property-role="${prop.id}"><option value="manager">Manager</option><option value="owner" ${admin.properties?.some(p=>p.id===prop.id&&p.is_owner)?'selected':''}>Owner</option></select>
                 </label>
               `).join('')}
             </div>
@@ -383,13 +381,13 @@ const adminUsersManager = {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${state.token}` }
           });
-          if (!response.ok) console.error('Failed to unassign property');
+          if (!response.ok) throw new Error((await response.json()).error || 'Failed to unassign property');
         }
       }
 
       // Add new properties
       for (const propId of selectedPropertyIds) {
-        if (!currentPropertyIds.includes(propId)) {
+        {
           const propertyRecord = this.allProperties.find(p => p.id === propId);
           const response = await fetch(`${API_BASE}/api/admin/admins/${adminId}/properties`, {
             method: 'POST',
@@ -397,9 +395,9 @@ const adminUsersManager = {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${state.token}`
             },
-            body: JSON.stringify({ property_id: propertyRecord.id })
+            body: JSON.stringify({ property_id: propertyRecord.id, is_owner: document.querySelector(`[data-property-role="${propId}"]`).value === 'owner' })
           });
-          if (!response.ok) console.error('Failed to assign property');
+          if (!response.ok) throw new Error((await response.json()).error || 'Failed to assign property');
         }
       }
 
@@ -430,7 +428,7 @@ const adminUsersManager = {
     const admin = this.admins.find(a => a.id === adminId);
     if (!admin) return;
 
-    if (!confirm(`Are you sure you want to deactivate ${admin.name}? They will no longer be able to log in.`)) {
+    if (!confirm(`Are you sure you want to deactivate ${escapeHtml(admin.name)}? They will no longer be able to log in.`)) {
       return;
     }
 
@@ -464,10 +462,10 @@ const adminUsersManager = {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('👥 [AdminUsersManager] DOMContentLoaded event fired');
+
   const adminUsersPage = document.getElementById('adminUsersPage');
   if (adminUsersPage) {
-    console.log('👥 [AdminUsersManager] adminUsersPage element found, initializing...');
+
     adminUsersManager.init();
   } else {
     console.warn('❌ [AdminUsersManager] adminUsersPage element not found!');

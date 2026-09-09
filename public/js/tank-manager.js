@@ -293,7 +293,7 @@ function editTank(tankId) {
   if (!tank) return;
 
   // For now, just show a toast. In future, open edit modal
-  showToast(`Edit feature for "${tank.name}" - Coming Soon!`);
+  showToast(`Edit feature for "${escapeHtml(tank.name)}" - Coming Soon!`);
 }
 
 function deleteTank(tankId) {
@@ -302,7 +302,7 @@ function deleteTank(tankId) {
 
   // Confirm deletion
   const confirmed = confirm(
-    `Are you sure you want to delete the tank "${tank.name}"? This action cannot be undone.`
+    `Are you sure you want to delete the tank "${escapeHtml(tank.name)}"? This action cannot be undone.`
   );
 
   if (!confirmed) return;
@@ -314,7 +314,7 @@ function deleteTank(tankId) {
   renderTanks();
 
   // Show success toast
-  showToast(`Tank "${tank.name}" deleted successfully!`, 'warning');
+  showToast(`Tank "${escapeHtml(tank.name)}" deleted successfully!`, 'warning');
 }
 
 // ─────────────────────────────────────────────────────
@@ -350,14 +350,7 @@ function formatTimeAgo(date) {
 }
 
 function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  };
-  return text.replace(/[&<>"']/g, (m) => map[m]);
+  return String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 function showToast(message, type = 'success') {

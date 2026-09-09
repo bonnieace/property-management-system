@@ -252,7 +252,7 @@ function deleteCamera(cameraId) {
 
   // Show confirmation dialog
   const confirmed = confirm(
-    `Are you sure you want to delete "${camera.name}"?\n\nThis action cannot be undone.`
+    `Are you sure you want to delete "${escapeHtml(camera.name)}"?\n\nThis action cannot be undone.`
   );
   if (!confirmed) return;
 
@@ -298,12 +298,5 @@ function formatTimeAgo(date) {
  * Escape HTML to prevent XSS
  */
 function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  };
-  return text.replace(/[&<>"']/g, (m) => map[m]);
+  return String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }

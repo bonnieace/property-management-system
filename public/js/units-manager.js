@@ -30,29 +30,26 @@ async function initUnitsManager() {
     });
   }
 
-  console.log('[Units Manager] Initializing...');
-  
   // Load properties first
   try {
-    console.log('[Units Manager] Loading properties for dropdown...');
+
     await loadPropertiesForDropdown();
-    console.log('[Units Manager] Properties loaded, populating dropdown...');
+
     populatePropertyDropdown();
-    console.log('[Units Manager] Dropdown populated');
+
   } catch (err) {
     console.error('[Units Manager] Failed to load properties:', err);
   }
   
   // Load units (independent flow)
   try {
-    console.log('[Units Manager] Loading units...');
+
     await loadUnits();
-    console.log('[Units Manager] Units loaded');
+
   } catch (err) {
     console.error('[Units Manager] Failed to load units:', err);
   }
-  
-  console.log('[Units Manager] Initialization complete');
+
 }
 
 // ─────────────────────────────────────────────────────
@@ -61,28 +58,25 @@ async function initUnitsManager() {
 
 async function loadPropertiesForDropdown() {
   try {
-    console.log('[Load Properties] Fetching from:', `${API_BASE}/api/admin/properties?status=active`);
+
     const response = await fetch(`${API_BASE}/api/admin/properties?status=active`, {
       headers: {
         'Authorization': `Bearer ${state.token}`
       }
     });
-    
-    console.log('[Load Properties] Response status:', response.status);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
     const result = await response.json();
-    console.log('[Load Properties] Result:', result);
-    
+
     if (!result.ok) {
       throw new Error(result.error || 'Failed to fetch properties');
     }
     
-    unitsState.propertiesList = result.data || [];
-    console.log('[Load Properties] Loaded', unitsState.propertiesList.length, 'properties');
+    unitsState.propertiesList = (result.data || []).filter(p=>!sessionStorage.getItem('activeProperty')||p.property_id===sessionStorage.getItem('activeProperty'));
+
   } catch (err) {
     console.error('[Load Properties For Dropdown]', err);
     showToast('Failed to load properties: ' + err.message, '⚠️');
@@ -102,29 +96,25 @@ async function loadUnits() {
     if (params.toString()) {
       url += '?' + params.toString();
     }
-    
-    console.log('[Load Units] Fetching from:', url);
+
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${state.token}`
       }
     });
-    
-    console.log('[Load Units] Response status:', response.status);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
     const result = await response.json();
-    console.log('[Load Units] Result:', result);
-    
+
     if (!result.ok) {
       throw new Error(result.error || 'Failed to fetch units');
     }
     
     unitsState.unitsList = result.data || [];
-    console.log('[Load Units] Loaded', unitsState.unitsList.length, 'units');
+
     renderUnitsTable();
   } catch (err) {
     console.error('[Load Units]', err);
@@ -146,9 +136,7 @@ function renderUnitsTable() {
     console.error('[Render Units] Table body not found!');
     return;
   }
-  
-  console.log('[Render Units] Rendering', unitsState.unitsList.length, 'units');
-  
+
   if (unitsState.unitsList.length === 0) {
     tableBody.innerHTML = `
       <tr>
@@ -157,7 +145,7 @@ function renderUnitsTable() {
         </td>
       </tr>
     `;
-    console.log('[Render Units] Rendered empty state');
+
     return;
   }
 
@@ -181,15 +169,12 @@ function renderUnitsTable() {
       </tr>
     `;
   }).join('');
-  
-  console.log('[Render Units] Table rendered successfully');
+
 }
 
 // Helper function to escape HTML
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text || '';
-  return div.innerHTML;
+  return String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // ─────────────────────────────────────────────────────
@@ -220,6 +205,7 @@ async function resetUnitFilters() {
 function openAddUnitModal() {
   unitsState.selectedUnit = null;
   document.getElementById('unitForm').reset();
+  document.getElementById('unitImagesGroup')?.remove();
   document.getElementById('unitId').value = '';
   document.getElementById('unitFormTitle').textContent = 'Add New Unit';
   document.getElementById('unitIdField').style.display = 'block';
@@ -248,6 +234,11 @@ async function openEditUnitModal(unitId) {
     });
     const result = await response.json();
     const unit = result.data?.find(u => u.id === unitId);
+    if (unit) {
+      let group = document.getElementById('unitImagesGroup');
+      if (!group) { group = document.createElement('div'); group.id = 'unitImagesGroup'; group.className = 'form-group'; group.innerHTML = '<label for="unitImageUrls">Room photos</label><textarea id="unitImageUrls" rows="4"></textarea><small>One HTTPS image URL per line. The first photo is the cover.</small>'; document.getElementById('unitName').closest('form').appendChild(group); }
+      document.getElementById('unitImageUrls').value = (unit.images || []).map(i => i.image_url).join('\n');
+    }
     
     if (!unit) {
       showToast('Unit not found', '❌');
@@ -297,6 +288,7 @@ function closeUnitsModal() {
   unitsState.isModalOpen = false;
   unitsState.selectedUnit = null;
   document.getElementById('unitForm').reset();
+  document.getElementById('unitImagesGroup')?.remove();
 }
 
 function populatePropertyDropdown() {
@@ -309,6 +301,7 @@ function populatePropertyDropdown() {
       <option value="${prop.property_id}">${escapeHtml(prop.name)} (${prop.property_id})</option>
     `).join('')}
   `;
+  if (unitsState.propertiesList.length === 1) dropdown.value = unitsState.propertiesList[0].property_id;
 }
 
 function updateConditionalFields() {
@@ -340,13 +333,13 @@ async function handleUnitSubmit(e) {
   try {
     const formData = {
       name: document.getElementById('unitName').value.trim(),
-      description: document.getElementById('unitDescription').value.trim() || null,
+      description: document.getElementById('unitDescription').value.trim(),
       type: document.getElementById('unitTypeField').value,
       bedrooms: parseInt(document.getElementById('unitBedrooms').value),
       bathrooms: parseInt(document.getElementById('unitBathrooms').value),
       max_guests: parseInt(document.getElementById('unitMaxGuests').value) || 4,
       base_price_kes: parseInt(document.getElementById('unitBasePrice').value),
-      extra_guest_charge: parseInt(document.getElementById('unitExtraGuestCharge').value) || 800,
+      extra_guest_charge: Number(document.getElementById('unitExtraGuestCharge').value || 0),
       water_deposit_kes: parseInt(document.getElementById('unitWaterDeposit').value) || 0,
       min_night_stay: parseInt(document.getElementById('unitMinNightStay').value) || 1,
       status: document.getElementById('unitStatus').value,
@@ -357,8 +350,8 @@ async function handleUnitSubmit(e) {
     if (!formData.name) throw new Error('Unit name is required');
     if (!formData.property_id) throw new Error('Property is required');
     if (!formData.type) throw new Error('Unit type is required');
-    if (!formData.bedrooms) throw new Error('Number of bedrooms is required');
-    if (!formData.bathrooms) throw new Error('Number of bathrooms is required');
+    if (!Number.isInteger(formData.bedrooms) || formData.bedrooms < 0) throw new Error('Number of bedrooms is required');
+    if (!Number.isInteger(formData.bathrooms) || formData.bathrooms < 0) throw new Error('Number of bathrooms is required');
     if (!formData.base_price_kes) throw new Error('Base price is required');
 
     if (isEdit) {
@@ -378,7 +371,11 @@ async function handleUnitSubmit(e) {
         throw new Error(result.error || 'Failed to update unit');
       }
       
-      showToast(`Unit "${formData.name}" updated successfully`, '✓');
+      if (document.getElementById('unitImageUrls') && isEdit) {
+        const imageResponse = await fetch(`${API_BASE}/api/admin/units/${unitId}/images`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ images: document.getElementById('unitImageUrls').value.split('\n').map(v => v.trim()).filter(Boolean).map(image_url => ({ image_url, alt_text: formData.name })) }) });
+        if (!imageResponse.ok) throw new Error('Unit saved, but photos could not be saved. Check the image URLs.');
+      }
+      showToast(`Unit "${escapeHtml(formData.name)}" updated successfully`, '✓');
     } else {
       // Create new unit
       const unit_id = document.getElementById('unitIdValue').value.trim();
@@ -411,7 +408,7 @@ async function handleUnitSubmit(e) {
         throw new Error(result.error || 'Failed to create unit');
       }
       
-      showToast(`Unit "${formData.name}" created successfully`, '✓');
+      showToast(`Unit "${escapeHtml(formData.name)}" created successfully`, '✓');
     }
     
     closeUnitsModal();

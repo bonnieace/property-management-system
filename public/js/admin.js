@@ -3,13 +3,11 @@
  * Handles authentication, data fetching, and UI interactions
  */
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? 'http://localhost:4000'
-  : '';
+const API_BASE = '';
 
 const state = {
-  token: localStorage.getItem('adminToken'),
-  user: JSON.parse(localStorage.getItem('adminUser') || '{}'),
+  token: null,
+  user: {},
   currentPage: 'dashboard',
   units: [],
   bookings: [],
@@ -41,19 +39,18 @@ function formatDate(dateString) {
  * This prevents auth flickering and shows the correct page immediately
  */
 window.addEventListener('sessionCheckComplete', async (event) => {
-  console.log('📋 [sessionCheckComplete] Session check completed:', event.detail);
-  
+
   const { authenticated, token, user } = event.detail;
 
   if (authenticated && token) {
     // Session is valid, restore state and show admin page
     state.token = token;
-    state.user = user || JSON.parse(localStorage.getItem('adminUser') || '{}');
-    console.log('✅ [sessionCheckComplete] Session restored - user:', state.user.username, 'role:', state.user.role);
+    state.user = user || {};
+
     showAdminPageSecurely();
   } else {
     // No valid session, show login page
-    console.log('🔓 [sessionCheckComplete] No valid session - showing login');
+
     showLoginPage();
   }
 });
@@ -62,28 +59,27 @@ window.addEventListener('sessionCheckComplete', async (event) => {
  * Safely show admin page with proper initialization
  */
 async function showAdminPageSecurely() {
-  console.log('🚀 [showAdminPageSecurely] Starting admin page initialization');
-  console.log('🚀 [showAdminPageSecurely] state.user:', state.user);
-  console.log('🚀 [showAdminPageSecurely] About to call showAdminPage()...');
-  
+
+
+
   try {
+    await Workspace.init(state.user);
     showAdminPage();
-    console.log('🚀 [showAdminPageSecurely] showAdminPage() completed');
+
   } catch(e) {
-    console.error('❌ [showAdminPageSecurely] Error in showAdminPage():', e);
+    showLoginPage(); const error=document.getElementById('loginError');error.textContent=e.message || 'Could not load your workspace';error.classList.add('show');return;
   }
   
   // Show skeletons while initial data loads
-  console.log('🚀 [showAdminPageSecurely] Showing skeleton loader');
+
   SkeletonLoader.showDashboardSkeleton();
   
   try {
     // Restore the last viewed page or default to dashboard
     const lastPage = localStorage.getItem('adminLastPage') || 'dashboard';
-    console.log('🚀 [showAdminPageSecurely] Last page:', lastPage);
-    
+
     // Load initial data concurrently with timeout protection
-    console.log('🚀 [showAdminPageSecurely] Loading units...');
+
     const unitsPromise = loadUnits().catch(err => {
       console.error('❌ [showAdminPageSecurely] Error loading units:', err);
       return null; // Don't fail entire flow for units
@@ -97,12 +93,11 @@ async function showAdminPageSecurely() {
       : Promise.resolve();
     
     await Promise.all([unitsPromise, dashboardPromise]);
-    console.log('🚀 [showAdminPageSecurely] Data loading complete');
-    
+
     // Show the page after data is loaded
-    console.log('🚀 [showAdminPageSecurely] Showing page:', lastPage);
+
     showPage(lastPage);
-    console.log('🚀 [showAdminPageSecurely] Initialization complete');
+
   } catch (err) {
     console.error('❌ [showAdminPageSecurely] Error loading initial admin data:', err);
     showPage('dashboard');
@@ -117,10 +112,9 @@ async function showAdminPageSecurely() {
 
 async function handleLogin(e) {
   e.preventDefault();
-  console.log('🔐 [handleLogin] Form submitted');
 
   const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value.trim();
+  const password = document.getElementById('password').value;
 
   const errorEl = document.getElementById('loginError');
   errorEl.classList.remove('show');
@@ -132,7 +126,7 @@ async function handleLogin(e) {
   }
 
   try {
-    console.log('🔐 [handleLogin] Sending login request for:', username);
+
     const response = await fetch(`${API_BASE}/api/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -140,7 +134,6 @@ async function handleLogin(e) {
     });
 
     const data = await response.json();
-    console.log('🔐 [handleLogin] Login response:', data.ok ? 'SUCCESS' : 'FAILED');
 
     if (!data.ok) {
       errorEl.textContent = data.error || 'Login failed';
@@ -149,31 +142,26 @@ async function handleLogin(e) {
     }
 
     // Store token and user
-    state.token = data.token;
+    state.token = 'cookie';
     state.user = data.user;
 
-    localStorage.setItem('adminToken', data.token);
-    localStorage.setItem('adminUser', JSON.stringify(data.user));
-    
-    console.log('🔐 [handleLogin] State and storage updated, user role:', state.user.role);
+    document.getElementById('password').value = '';
 
     // Show loading overlay while transitioning
     const loader = document.getElementById('initialLoadingOverlay');
     if (loader) {
       loader.classList.add('show');
-      console.log('🔐 [handleLogin] Loading overlay shown');
+
     }
 
-    console.log('🔐 [handleLogin] Calling showAdminPageSecurely()...');
     // Transition to admin page with proper initialization
     await showAdminPageSecurely();
-    console.log('🔐 [handleLogin] showAdminPageSecurely() completed');
-    
+
     // Hide overlay after page is ready
     if (loader) {
       setTimeout(() => {
         loader.classList.remove('show');
-        console.log('🔐 [handleLogin] Loading overlay hidden');
+
       }, 500);
     }
   } catch (err) {
@@ -280,7 +268,9 @@ function initDrawerTouchListener() {
   }, { passive: false });
 }
 
-function logout() {
+async function logout() {
+  try { await fetch('/api/admin/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } }); } catch { showToast('Could not sign out. Check your connection.'); return; }
+  sessionStorage.removeItem('activeProperty');
   localStorage.removeItem('adminToken');
   localStorage.removeItem('adminUser');
   state.token = null;
@@ -304,10 +294,9 @@ function showLoginPage() {
 }
 
 function showAdminPage() {
-  console.log('🔓 [showAdminPage] Showing admin page');
-  console.log('🔓 [showAdminPage] adminUsersNavLink exists:', !!document.getElementById('adminUsersNavLink'));
-  console.log('🔓 [showAdminPage] adminUsersDrawerSection exists:', !!document.getElementById('adminUsersDrawerSection'));
-  
+
+
+
   document.getElementById('loginPage').classList.remove('active');
   document.getElementById('adminPage').classList.add('active');
 
@@ -320,7 +309,10 @@ function showAdminPage() {
 }
 
 function showPage(page) {
-  console.log('🔄 showPage called with:', page);
+
+  if (['tank-manager', 'dvr-manager', 'access-control'].includes(page)) { showToast('Device integrations are not configured for this property.'); return; }
+  if (page === 'admin-users' && state.user.role !== 'full_admin') page = 'dashboard';
+  if (Workspace.dirty && state.currentPage === 'workspace' && page !== 'workspace') { if (!confirm('Discard unsaved website changes?')) return; Workspace.dirty = false; }
   state.currentPage = page;
   
   // Save current page to localStorage for persistence
@@ -329,6 +321,7 @@ function showPage(page) {
   // Map page names to actual element IDs
   const pageMap = {
     'dashboard': 'dashboardPage',
+    'workspace': 'workspacePage',
     'properties': 'propertiesPage',
     'units': 'unitsPage',
     'calendar-manager': 'calendarManagerPage',
@@ -364,6 +357,7 @@ function showPage(page) {
   // Update title
   const titles = {
     'dashboard': 'Dashboard',
+    'workspace': 'Property workspace',
     'properties': 'Properties & Buildings',
     'units': 'Units & Rooms',
     'calendar-manager': 'Calendar Manager',
@@ -402,13 +396,14 @@ function showPage(page) {
   // Show current page
   const pageEl = document.getElementById(pageId);
   if (pageEl) {
-    console.log('✅ Found page element:', pageId);
+
     pageEl.classList.add('active');
 
     // Show skeleton loaders while loading data
     showSkeletonForPage(page);
 
     // Load data
+    if (page === 'workspace') Workspace.open();
     if (page === 'dashboard') loadDashboardData();
     if (page === 'properties') initPropertiesManager();
     if (page === 'units') initUnitsManager();
@@ -427,7 +422,7 @@ function showPage(page) {
     if (page === 'rentalPayments') paymentsManager.init();
     if (page === 'rentalArrears') arrearsDashboard.init();
     if (page === 'calendar-manager') {
-      console.log('📅 Calling loadCalendarData()');
+
       loadCalendarData();
     }
   } else {
@@ -481,9 +476,8 @@ function showSkeletonForPage(page) {
 
 function updateUserDisplay() {
   const user = state.user;
-  console.log('🔐 [updateUserDisplay] User:', user);
-  console.log('🔐 [updateUserDisplay] User role:', user.role);
-  
+
+
   document.getElementById('userName').textContent = user.name || 'Admin User';
 
   // Show role and properties in user display
@@ -503,26 +497,24 @@ function updateUserDisplay() {
   
   // Desktop: Show/hide Administration section in sidebar
   const adminSidebarSection = document.getElementById('adminSidebarSection');
-  console.log('🔐 [updateUserDisplay] adminSidebarSection element:', adminSidebarSection);
-  
+
   if (adminSidebarSection) {
-    console.log('🔐 [updateUserDisplay] Should show Admin sidebar section:', shouldShowAdmin, '(role:', user.role, ')');
+
     adminSidebarSection.style.display = shouldShowAdmin ? 'block' : 'none';
-    console.log('🔐 [updateUserDisplay] Set adminSidebarSection.style.display to:', adminSidebarSection.style.display);
+
   } else {
-    console.warn('❌ [updateUserDisplay] adminSidebarSection element not found!');
+
   }
 
   // Mobile/Tablet: Show/hide Administration section in drawer
   const adminUsersDrawerSection = document.getElementById('adminUsersDrawerSection');
-  console.log('🔐 [updateUserDisplay] adminUsersDrawerSection element:', adminUsersDrawerSection);
-  
+
   if (adminUsersDrawerSection) {
-    console.log('🔐 [updateUserDisplay] Should show drawer Admin Users section:', shouldShowAdmin);
+
     adminUsersDrawerSection.style.display = shouldShowAdmin ? 'block' : 'none';
-    console.log('🔐 [updateUserDisplay] Set adminUsersDrawerSection.style.display to:', adminUsersDrawerSection.style.display);
+
   } else {
-    console.warn('❌ [updateUserDisplay] adminUsersDrawerSection element not found!');
+
   }
 }
 
@@ -544,7 +536,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
   const response = await fetch(`${API_BASE}/api/admin${endpoint}`, options);
   const data = await response.json();
 
-  if (!data.ok && data.error === 'Invalid or expired token') {
+  if (response.status === 401) {
     logout();
   }
 
@@ -553,17 +545,15 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 
 async function loadUnits() {
   try {
-    const response = await fetch(`${API_BASE}/api/calendar/units`);
+    const response = await fetch(`${API_BASE}/api/admin/units`);
     const data = await response.json();
-    
-    console.log('[loadUnits] Raw response:', data);
-    console.log('[loadUnits] Response structure - ok:', data.ok, 'data length:', data.data?.length);
+
 
     if (data.ok && data.data) {
       state.units = data.data;
-      console.log('[loadUnits] Stored in state.units:', state.units.length, 'units');
+
     } else {
-      console.warn('[loadUnits] Failed to load - response:', { ok: data.ok, data: !!data.data, error: data.error });
+
     }
   } catch (err) {
     console.error('Load units error:', err);
@@ -572,157 +562,20 @@ async function loadUnits() {
 
 async function loadDashboardData() {
   try {
-    // Load all confirmed bookings
-    const allBookingsData = await apiCall('/bookings?status=confirmed');
-    const unitsData = await apiCall('/units');
-
-    const allBookings = allBookingsData.data || [];
-    const units = unitsData.data || [];
-
-    // Classify bookings: "rental" = rental, else = BnB
-    const bnbBookings = allBookings.filter(b => b.booking_type !== 'rental');
-    const rentalBookings = allBookings.filter(b => b.booking_type === 'rental');
-
-    // Remove skeleton loading styles
-    const statValues = document.querySelectorAll('#dashboardPage .stat-value');
-    statValues.forEach(el => {
-      el.classList.remove('skeleton-loading');
-      el.style.backgroundColor = '';
-      el.style.animation = '';
-      el.style.minHeight = '';
-    });
-
-    // Calculate revenues
-    const bnbRevenue = bnbBookings.reduce((sum, b) => sum + (b.total_amount_kes || 0), 0);
-    const rentalRevenue = rentalBookings.reduce((sum, b) => sum + (b.total_amount_kes || 0), 0);
-
-    // Update stats
-    document.getElementById('statBnbBookings').textContent = bnbBookings.length;
-    document.getElementById('statBnbRevenue').textContent = bnbRevenue.toLocaleString();
-    document.getElementById('statRentalBookings').textContent = rentalBookings.length;
-    document.getElementById('statRentalRevenue').textContent = rentalRevenue.toLocaleString();
-
-    // Update the dashboard chart with real data (all booking types)
-    updateRevenueChartData(allBookings, 'week');
-
-    // Recent BnB bookings - Modern list format
-    const recentHtml = bnbBookings.slice(0, 5).length > 0
-      ? bnbBookings.slice(0, 5).map((b, idx) => {
-        const icons = ['✅', '📅', '🏠', '💼', '🎯'];
-        const icon = icons[idx % icons.length];
-        return `
-          <div class="list-item">
-            <div class="list-item-icon">${icon}</div>
-            <div class="list-item-content">
-              <div class="list-item-title">${b.guest_name || 'Guest'}</div>
-              <div class="list-item-subtitle">${b.unit_id} • ${new Date(b.checkin_date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</div>
-            </div>
-            <div class="list-item-value">KES ${(b.total_amount_kes || 0).toLocaleString()}</div>
-          </div>
-        `;
-      }).join('')
-      : '<div style="color: var(--text-muted); padding: 20px; text-align: center;">No recent B&B bookings</div>';
-
-    const recentContainer = document.getElementById('recentBookingsContainer');
-    recentContainer.innerHTML = recentHtml;
-    recentContainer.style.opacity = '1';
-
-    // Calculate occupancy by individual unit
-    if (units && units.length > 0) {
-      const unitOccupancy = {};
-      
-      // Initialize all units
-      units.forEach(unit => {
-        unitOccupancy[unit.id] = { 
-          name: unit.name, 
-          property: unit.property_name || unit.property,
-          type: unit.type || 'Standard',
-          bookingDaysThisMonth: 0,
-          totalDaysThisMonth: 0
-        };
-      });
-
-      // Calculate occupancy percentage for each unit
-      const today = new Date();
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      const totalDaysInMonth = monthEnd.getDate();
-
-      // Count booked days for each unit this month
-      allBookings.forEach(booking => {
-        const checkin = new Date(booking.checkin_date);
-        const checkout = new Date(booking.checkout_date);
-        
-        if (unitOccupancy[booking.unit_id]) {
-          // Calculate overlap between booking and current month
-          const overlapStart = new Date(Math.max(checkin.getTime(), monthStart.getTime()));
-          const overlapEnd = new Date(Math.min(checkout.getTime(), monthEnd.getTime()));
-          
-          if (overlapStart <= overlapEnd) {
-            const daysBooked = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
-            unitOccupancy[booking.unit_id].bookingDaysThisMonth += daysBooked;
-          }
-        }
-      });
-
-      // Calculate occupancy percentage for each unit
-      Object.keys(unitOccupancy).forEach(unitId => {
-        unitOccupancy[unitId].totalDaysThisMonth = totalDaysInMonth;
-      });
-
-      // Update occupancy display - show top 5 units with progress bars
-      const occupancyContainer = document.getElementById('occupancyContainer');
-      if (occupancyContainer) {
-        const topUnits = Object.entries(unitOccupancy).slice(0, 5).map(([unitId, data]) => {
-          const percentage = data.totalDaysThisMonth > 0 
-            ? Math.round((data.bookingDaysThisMonth / data.totalDaysThisMonth) * 100) 
-            : 0;
-          return `
-            <div class="list-item">
-              <div class="list-item-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-              </div>
-              <div class="list-item-content">
-                <div class="list-item-title">${data.name} <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">(${data.type})</span></div>
-                <div class="progress-bar-container">
-                  <div class="progress-bar-track">
-                    <div class="progress-bar-fill" style="width: ${percentage}%;"></div>
-                  </div>
-                  <div class="progress-bar-value">${percentage}%</div>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-        occupancyContainer.innerHTML = topUnits;
-      }
+    const response = await apiCall('/dashboard');
+    if (!response.ok) throw new Error(response.error || 'Dashboard could not be loaded');
+    const d = response.data;
+    for (const [id, value] of Object.entries({statBnbBookings:d.bookings,statBnbRevenue:d.bookingValue,statRentalBookings:d.activeLeases,statRentalRevenue:d.rentReceived})) {
+      const el=document.getElementById(id);el.classList.remove('skeleton-loading');el.removeAttribute('style');el.textContent=Number(value).toLocaleString();
     }
-
-    // Upcoming events with modern styling
-    const upcomingEvents = [
-      { name: 'Monthly Review', date: 'Tomorrow', icon: '📋' },
-      { name: 'Maintenance Check', date: 'Next Week', icon: '🔧' },
-      { name: 'Financial Report', date: 'End of Month', icon: '📊' }
-    ];
-    
-    const upcomingHtml = upcomingEvents.map(event => `
-      <div class="list-item">
-        <div class="list-item-icon">${event.icon}</div>
-        <div class="list-item-content">
-          <div class="list-item-title">${event.name}</div>
-          <div class="list-item-subtitle">${event.date}</div>
-        </div>
-      </div>
-    `).join('');
-
-    const upcomingContainer = document.getElementById('upcomingEventsContainer');
-    if (upcomingContainer) {
-      upcomingContainer.innerHTML = upcomingHtml;
-      upcomingContainer.style.opacity = '1';
-    }
-
+    updateRevenueChartData(d.chart, 'week');
+    const bookingRows = rows => rows.map(b=>`<div class="list-item"><div class="list-item-content"><div class="list-item-title">${escapeHtml(b.guest_name)}</div><div class="list-item-subtitle">${escapeHtml(b.checkin_date)} · ${escapeHtml(b.checkout_date)}</div></div><div class="list-item-value">KES ${Number(b.total_amount_kes).toLocaleString()}</div></div>`).join('');
+    const recent=document.getElementById('recentBookingsContainer');recent.innerHTML=bookingRows(d.recent)||'<p class="field-hint">No confirmed bookings yet.</p>';recent.style.opacity='1';
+    const upcoming=document.getElementById('upcomingEventsContainer');upcoming.innerHTML=bookingRows(d.upcoming)||'<p class="field-hint">No upcoming check-ins.</p>';upcoming.style.opacity='1';
+    document.getElementById('occupancyContainer').innerHTML=d.occupancy.map(u=>`<div class="list-item"><div class="list-item-content"><div class="list-item-title">${escapeHtml(u.name)}</div><div class="progress-bar-container"><div class="progress-bar-track"><div class="progress-bar-fill" style="width:${u.percentage}%"></div></div><div class="progress-bar-value">${u.percentage}%</div></div></div></div>`).join('')||'<p class="field-hint">Add your first unit to track occupancy.</p>';
   } catch (err) {
-    console.error('Load dashboard error:', err);
+    document.querySelectorAll('#dashboardPage .stat-value').forEach(el=>{el.classList.remove('skeleton-loading');el.textContent='—';});
+    showToast(err.message || 'Dashboard could not be loaded', '!');
   }
 }
 
@@ -742,7 +595,7 @@ async function loadBookings() {
       ? bookings.map(b => `
           <tr>
             <td><strong>${b.reference || b.id}</strong></td>
-            <td>${b.guest_name}</td>
+            <td>${escapeHtml(b.guest_name)}</td>
             <td>${b.unit_id}</td>
             <td>${formatDate(b.checkin_date)}</td>
             <td>${formatDate(b.checkout_date)}</td>
@@ -779,7 +632,7 @@ async function loadTenants() {
       ? tenants.map(r => `
           <tr>
             <td><strong>${r.reference || r.id}</strong></td>
-            <td>${r.guest_name}</td>
+            <td>${escapeHtml(r.guest_name)}</td>
             <td>${r.unit_id}</td>
             <td>${formatDate(r.checkin_date)}</td>
             <td>${formatDate(r.checkout_date)}</td>
@@ -801,7 +654,7 @@ async function loadTenants() {
 }
 
 async function openCreateBookingModal(bookingType) {
-  console.log('🟡 openCreateBookingModal called with type:', bookingType);
+
   // Reset form
   document.getElementById('bookingForm').reset();
   document.getElementById('bookingId').value = '';
@@ -817,13 +670,13 @@ async function openCreateBookingModal(bookingType) {
   document.getElementById('bookingFormTitle').textContent = title;
   
   // Populate units dropdown (filter by booking type - this is frontend logic)
-  console.log('🟡 Calling populateUnitsDropdown...');
+
   await populateUnitsDropdown(bookingType);
   
   // Open modal
-  console.log('🟡 Opening modal overlay...');
+
   document.getElementById('bookingFormModalOverlay').classList.add('open');
-  console.log('🟢 Modal should now be visible');
+
 }
 
 async function openEditBookingModal(bookingId) {
@@ -877,11 +730,11 @@ async function openEditBookingModal(bookingId) {
 
 async function populateUnitsDropdown(bookingType) {
   try {
-    console.log('🟡 populateUnitsDropdown called with type:', bookingType);
-    const response = await fetch(`${API_BASE}/api/calendar/units`);
-    console.log('🟡 Fetch response status:', response.status);
+
+    const response = await fetch(`${API_BASE}/api/admin/units`);
+
     const data = await response.json();
-    console.log('🟡 Units data received:', data.data?.length, 'units');
+
     const units = data.data || [];
     
     // Keep state.units in sync with fresh data
@@ -903,17 +756,15 @@ async function populateUnitsDropdown(bookingType) {
         return ['bedsit', '1bed', '2bed'].includes(u.type);
       }
     });
-    
-    console.log('🟡 Filtered units:', filteredUnits.length, '(after property & type filter)');
-    console.log('🟡 Admin property access:', state.user.property || 'Full access (manager)');
+
+
     const select = document.getElementById('bookingUnitId');
-    console.log('🟡 Select element found:', !!select);
+
     const currentValue = select.value;
     
     select.innerHTML = '<option value="">Select a unit...</option>' +
-      filteredUnits.map(u => `<option value="${u.id}">${u.property_id} - ${u.name || u.unit_id}</option>`).join('');
-    
-    console.log('🟢 Units dropdown populated');
+      filteredUnits.map(u => `<option value="${u.id}">${u.property_id} - ${escapeHtml(u.name || u.unit_id)}</option>`).join('');
+
     if (currentValue) {
       select.value = currentValue;
     }
@@ -1047,10 +898,10 @@ async function deleteBooking(bookingId) {
 }
 
 function closeBookingFormModal() {
-  console.log('🟡 Closing booking modal');
+
   document.getElementById('bookingFormModalOverlay').classList.remove('open');
   document.getElementById('bookingForm').reset();
-  console.log('🟢 Modal closed');
+
 }
 
 async function loadPricingRules() {
@@ -1064,7 +915,7 @@ async function loadPricingRules() {
             <td>${r.unit_id}</td>
             <td>${r.start_date} to ${r.end_date}</td>
             <td><strong>Ksh ${r.price_per_night_kes.toLocaleString()}</strong></td>
-            <td>${r.reason}</td>
+            <td>${escapeHtml(r.reason)}</td>
             <td><span class="badge ${r.is_active ? 'badge-confirmed' : ''}" style="opacity: ${r.is_active ? 1 : 0.5}">${r.is_active ? 'Active' : 'Inactive'}</span></td>
             <td>
               <a href="#" onclick="editPricingRule('${r.id}'); return false;" style="color: var(--earth); text-decoration: none; margin-right: 12px;">Edit</a>
@@ -1092,7 +943,7 @@ async function loadBlockedDates() {
             <td>${b.unit_id}</td>
             <td>${b.start_date}</td>
             <td>${b.end_date}</td>
-            <td>${b.reason}</td>
+            <td>${escapeHtml(b.reason)}</td>
             <td>${b.blocked_by || 'System'}</td>
             <td><a href="#" onclick="deleteBlockedDate('${b.id}'); return false;" style="color: var(--rust); text-decoration: none;">Delete</a></td>
           </tr>
@@ -1114,8 +965,8 @@ async function loadWaitlist() {
     const html = entries.length > 0
       ? entries.map(e => `
           <tr>
-            <td>${e.guest_name}</td>
-            <td>${e.guest_phone}</td>
+            <td>${escapeHtml(e.guest_name)}</td>
+            <td>${escapeHtml(e.guest_phone)}</td>
             <td>${e.unit_id}</td>
             <td>${e.preferred_checkin} to ${e.preferred_checkout}</td>
             <td><span class="badge ${e.notified ? 'badge-confirmed' : 'badge-pending'}">${e.notified ? 'Notified' : 'Pending'}</span></td>
@@ -1141,7 +992,7 @@ async function loadAuditLog() {
       ? logs.map(log => `
           <tr>
             <td>${new Date(log.created_at).toLocaleString()}</td>
-            <td>${log.event_type}</td>
+            <td>${escapeHtml(log.event_type)}</td>
             <td>${log.booking_id || '—'}</td>
             <td style="font-size: .8rem; color: var(--text-muted);">${log.event_data ? log.event_data.substring(0, 50) + '...' : '—'}</td>
           </tr>
@@ -1161,7 +1012,7 @@ async function loadAuditLog() {
  */
 async function loadCalendarData() {
   try {
-    console.log('[Calendar] loadCalendarData() called, delegating to calendarManager.init()');
+
     await calendarManager.init();
   } catch (err) {
     console.error('[Calendar] Error in loadCalendarData:', err);
@@ -1172,12 +1023,12 @@ async function loadCalendarData() {
 
 
 async function handleUnitFilterChange() {
-  console.log('[Calendar Filter] Unit filter changed');
+
   await calendarManager.refreshCalendar();
 }
 
 function switchCalendarView(viewType) {
-  console.log('[Calendar View] Switching to view:', viewType);
+
   if (calendarManager?.calendar) {
     calendarManager.calendar.changeView(viewType);
     
@@ -1403,7 +1254,7 @@ function formatPricingBreakdown(booking) {
         </div>`;
       }
     } catch (e) {
-      console.warn('Could not parse pricing breakdown JSON:', e);
+
     }
   }
 

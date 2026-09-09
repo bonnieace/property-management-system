@@ -190,13 +190,13 @@ async function handlePropertySubmit(e) {
   try {
     const formData = {
       name: document.getElementById('propertyName').value.trim(),
-      description: document.getElementById('propertyDescription').value.trim() || null,
-      address: document.getElementById('propertyAddress').value.trim() || null,
-      city: document.getElementById('propertyCity').value.trim() || null,
+      description: document.getElementById('propertyDescription').value.trim() || '',
+      address: document.getElementById('propertyAddress').value.trim() || '',
+      city: document.getElementById('propertyCity').value.trim() || '',
       country: document.getElementById('propertyCountry').value || 'Kenya',
-      contact_person: document.getElementById('propertyContactPerson').value.trim() || null,
-      contact_phone: document.getElementById('propertyContactPhone').value.trim() || null,
-      email: document.getElementById('propertyEmail').value.trim() || null,
+      contact_person: document.getElementById('propertyContactPerson').value.trim() || '',
+      contact_phone: document.getElementById('propertyContactPhone').value.trim() || '',
+      email: document.getElementById('propertyEmail').value.trim() || '',
       status: document.getElementById('propertyStatus').value
     };
 
@@ -222,7 +222,7 @@ async function handlePropertySubmit(e) {
         throw new Error(result.error || 'Failed to update property');
       }
       
-      showToast(`Property "${formData.name}" updated successfully`, '✓');
+      showToast(`Property "${escapeHtml(formData.name)}" updated successfully`, '✓');
     } else {
       // Create new property
       const property_id = document.getElementById('propertyIdValue').value.trim();
@@ -255,7 +255,9 @@ async function handlePropertySubmit(e) {
         throw new Error(result.error || 'Failed to create property');
       }
       
-      showToast(`Property "${formData.name}" created successfully`, '✓');
+      sessionStorage.setItem('activeProperty', result.data.property_id);
+      localStorage.setItem('adminLastPage', 'workspace');
+      location.reload(); return;
     }
     
     closePropertiesModal();

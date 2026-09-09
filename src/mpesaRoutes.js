@@ -1,632 +1,162 @@
-const express    = require('express');
-const daraja     = require('./daraja');
-const store      = require('./bookingStore');
-const rentalStore = require('./rentalDepositStore');
-const msgQueue   = require('./messageQueue');
-const db         = require('./db');
-const tenantService = require('./tenantService');
-const contractService = require('./contractService');
-const paymentService = require('./paymentService');
-
+const express = require('express');
+const crypto = require('node:crypto');
+const db = require('./db');
+const h = require('./http');
+const merchant = require('./merchantService');
+const { createBooking, assertAvailable } = require('./bookingService');
+const { publicUnit } = require('./calendarRoutes');
+const auth = require('./adminAuth');
+const access = require('./propertyScope');
 const router = express.Router();
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-/**
- * Normalise a Kenyan phone number to 254XXXXXXXXX format.
- * Accepts: 07XX, 01XX, +2547XX, 2547XX
- */
-function normalisePhone(raw) {
-  const digits = String(raw).replace(/\D/g, '');
-  if (digits.startsWith('254') && digits.length === 12) return digits;
-  if (digits.startsWith('0')   && digits.length === 10)  return '254' + digits.slice(1);
-  if (digits.startsWith('7')   && digits.length === 9)   return '254' + digits;
-  if (digits.startsWith('1')   && digits.length === 9)   return '254' + digits;
-  return null;
+const pendingStates = ['initiating', 'pending'];
+function statusBody(attempt) {
+  return { ok: true, bookingId: attempt.record_id, status: attempt.status, amount: attempt.amount_kes, ref: `NYH-${attempt.id.slice(0, 8).toUpperCase()}`, mpesaReceiptNumber: attempt.receipt || null };
 }
-
-function validateAmount(amount) {
-  const n = parseInt(amount, 10);
-  if (isNaN(n) || n < 1) return null;
-  return n;
+async function authorizedAttempt(req) {
+  const id = h.z.uuid().parse(req.params.bookingId || req.body.bookingId);
+  const token = h.required(100).parse(req.headers['x-booking-token']);
+  const row = await db('payment_attempts').where('record_id', id).where('access_token_hash', h.hash(token)).first();
+  if (!row) throw new h.HttpError(404, 'Payment not found');
+  return row;
 }
-
-/**
- * Handle rental payment from M-Pesa callback
- * Creates tenant + contract on first payment (using transactions)
- * Then applies payment
- */
-async function handleRentalPayment({
-  phone,
-  amount,
-  mpesaReceiptNumber,
-  transactionDate,
-  booking, // NEW: pass booking object from callback
-}) {
-  const trx = await db.transaction(); // Start transaction
-  
-  try {
-    console.log(`[Callback Rental] Processing rental payment for ${phone} | amount=${amount} KES | receipt=${mpesaReceiptNumber}`);
-
-    // Get or create tenant (using transaction)
-    let tenant = await trx('tenants')
-      .where('tenant_phone', phone)
-      .first();
-    
-    if (!tenant && booking) {
-      console.log(`[Callback Rental] Creating new tenant for phone ${phone}...`);
-      try {
-        // Create tenant within transaction and get the ID
-        const result = await trx('tenants').insert({
-          tenant_phone: phone,
-          tenant_name: booking.guestName,
-          tenant_email: booking.guestEmail || null,
-          id_number: null, // Collect later via admin form
-          next_of_kin_phone: null,
-          next_of_kin_name: null,
-          notes: `Auto-registered from rental deposit | Booking ref: ${booking.ref}`
-        }).returning('id');
-        
-        // Extract tenant ID from result
-        let tenantId;
-        if (Array.isArray(result) && result.length > 0) {
-          tenantId = result[0].id || result[0];
-        } else if (typeof result === 'number') {
-          tenantId = result;
-        } else {
-          throw new Error('Failed to get tenant ID from insert result');
-        }
-        
-        // Fetch the full tenant record from transaction
-        tenant = await trx('tenants').where('id', tenantId).first();
-        
-        if (!tenant) {
-          throw new Error(`Tenant created but could not be fetched (ID: ${tenantId})`);
-        }
-        
-        console.log(`[Callback Rental] ✅ Tenant created ID=${tenant.id} (${tenant.tenant_name})`);
-      } catch (createErr) {
-        if (createErr.message.includes('already exists') || createErr.message.includes('unique')) {
-          // Race condition — fetch it from transaction
-          tenant = await trx('tenants')
-            .where('tenant_phone', phone)
-            .first();
-          console.log(`[Callback Rental] Tenant was created by concurrent request`);
-        } else {
-          throw createErr;
-        }
-      }
+router.post('/stk-push', h.rateLimit('stk', 10, 60000), h.route(async (req, res) => {
+  const key = h.z.string().uuid().parse(req.headers['idempotency-key']);
+  let unit = await publicUnit(req.body.unitId);
+  if (unit.property_id !== req.body.property) throw new h.HttpError(400, 'Unit and property do not match');
+  const p = await db('properties').where('property_id', unit.property_id).first();
+  const setting = await merchant.settings(p.id);
+  const kind = h.z.enum(['bnb', 'rental']).parse(req.body.type);
+  if ((unit.type === 'bnb') !== (kind === 'bnb')) throw new h.HttpError(400, 'Booking type does not match this unit');
+  const payload = { type: kind, unitId: unit.unit_id, property: unit.property_id,
+    guestName: h.required(100).parse(req.body.guestName), guestPhone: h.phone(req.body.guestPhone || req.body.phone),
+    guestEmail: h.z.union([h.email, h.z.literal('')]).parse(req.body.guestEmail || ''), phone: h.phone(req.body.phone),
+    checkin: h.date.parse(req.body.checkin), checkout: kind === 'bnb' ? h.date.parse(req.body.checkout) : null,
+    guests: h.integer(1, unit.max_guests).parse(req.body.guests || 1), notes: h.text(3000).parse(req.body.notes || '') };
+  if (payload.checkin < new Date().toISOString().slice(0, 10)) throw new h.HttpError(400, 'Choose today or a future date');
+  const requestHash = h.hash(JSON.stringify(payload));
+  const result = await db.transaction(async trx => {
+    unit = await trx('units').where('id', unit.id).forUpdate().first();
+    const existing = await trx('payment_attempts').where({ property_id: unit.property_id, idempotency_key: key }).first();
+    if (existing) {
+      if (existing.request_hash !== requestHash) throw new h.HttpError(409, 'This payment request has already been used. Check its status before starting again.');
+      return { attempt: existing, created: false };
     }
-
-    if (!tenant) {
-      await trx.rollback();
-      console.warn(`[Callback Rental] Could not find or create tenant for phone ${phone}`);
-      return null; // Signal to fall through to BnB flow
-    }
-
-    console.log(`[Callback Rental] Using tenant ID ${tenant.id} (${tenant.tenant_name})`);
-
-    // Get active contract for tenant (using transaction)
-    let contract = await trx('rental_contracts')
-      .where('tenant_id', tenant.id)
-      .where('status', 'active')
-      .orderBy('start_date', 'desc')
-      .first();
-
-    // If no contract exists and we have booking info, create one (with transaction)
-    if (!contract && booking) {
-      console.log(`[Callback Rental] No active contract found — creating one...`);
-      try {
-        // Fetch unit details from transaction
-        const unit = await trx('units')
-          .where('id', booking.unit_id)
-          .first();
-
-        if (!unit) {
-          throw new Error(`Unit not found: ${booking.unit_id}`);
-        }
-
-        // Verify property exists in transaction
-        const property = await trx('properties')
-          .where('property_id', booking.property_id)
-          .first();
-
-        if (!property) {
-          throw new Error(`Property not found: ${booking.property_id}`);
-        }
-
-        // Determine start date (move-in or today)
-        const startDate = booking.checkin_date || new Date().toISOString().split('T')[0];
-
-        // Create contract within transaction
-        const contractResult = await trx('rental_contracts').insert({
-          tenant_id: tenant.id,
-          unit_id: booking.unit_id,
-          property_id: booking.property_id,
-          start_date: startDate,
-          end_date: null,
-          monthly_rent_kes: unit.base_price_kes,
-          payment_frequency: 'monthly',
-          security_deposit_kes: amount, // First payment as security deposit
-          utilities_deposit_kes: unit.water_deposit_kes || 0,
-          status: 'active',
-          contract_notes: `Auto-created from rental deposit | Booking: ${booking.ref}`
-        }).returning('id');
-
-        // Extract contract ID and fetch full record
-        let contractId;
-        if (Array.isArray(contractResult) && contractResult.length > 0) {
-          contractId = contractResult[0].id || contractResult[0];
-        } else if (typeof contractResult === 'string') {
-          contractId = contractResult;
-        } else {
-          throw new Error('Failed to get contract ID from insert result');
-        }
-        
-        contract = await trx('rental_contracts').where('id', contractId).first();
-
-        if (!contract) {
-          throw new Error(`Contract created but could not be fetched (ID: ${contractId})`);
-        }
-
-        console.log(`[Callback Rental] ✅ Contract created ID=${contract.id} | monthly_rent=${unit.base_price_kes} KES`);
-      } catch (contractErr) {
-        await trx.rollback();
-        console.error(`[Callback Rental] Error creating contract: ${contractErr.message}`);
-        return { success: false, reason: `Failed to create contract: ${contractErr.message}` };
-      }
-    }
-
-    if (!contract) {
-      await trx.rollback();
-      console.warn(`[Callback Rental] No active contract for tenant ${tenant.id}`);
-      return { success: false, reason: 'No active contract' };
-    }
-
-    console.log(`[Callback Rental] Using contract ${contract.id} | monthly rent = ${contract.monthly_rent_kes} KES`);
-
-    // Determine payment month (current month)
-    const now = new Date();
-    const month = now.getMonth() + 1; // 1-12
-    const year = now.getFullYear();
-    const dueDate = new Date(year, month, 1); // First of next month (or same month)
-
-    // Record payment within transaction
-    const paymentResult = await trx('rental_payments').insert({
-      contract_id: contract.id,
-      tenant_id: tenant.id,
-      unit_id: contract.unit_id,
-      month,
-      year,
-      amount_due_kes: contract.monthly_rent_kes,
-      amount_paid_kes: Math.min(amount, contract.monthly_rent_kes),
-      amount_outstanding_kes: Math.max(0, contract.monthly_rent_kes - amount),
-      status: amount >= contract.monthly_rent_kes ? 'paid' : 'partial',
-      due_date: dueDate.toISOString().split('T')[0],
-      paid_date: amount >= contract.monthly_rent_kes ? now.toISOString().split('T')[0] : null,
-      mpesa_receipt_number: mpesaReceiptNumber,
-      mpesa_phone: phone,
-      reference: `received_${mpesaReceiptNumber}`,
-      notes: `M-Pesa payment on ${now.toISOString().split('T')[0]}`
-    }).returning('id');
-
-    // Extract payment ID and fetch full record
-    let paymentId;
-    if (Array.isArray(paymentResult) && paymentResult.length > 0) {
-      paymentId = paymentResult[0].id || paymentResult[0];
-    } else if (typeof paymentResult === 'number') {
-      paymentId = paymentResult;
-    } else {
-      throw new Error('Failed to get payment ID from insert result');
-    }
-    
-    const payment = await trx('rental_payments').where('id', paymentId).first();
-
-    if (!payment) {
-      throw new Error(`Payment recorded but could not be fetched (ID: ${paymentId})`);
-    }
-
-    console.log(`[Callback Rental] Payment recorded ID=${payment.id} | status=confirmed | amount=${amount} KES`);
-
-    // Commit transaction
-    await trx.commit();
-
-    // Queue SMS notification to tenant (outside transaction)
-    try {
-      msgQueue.queueMessage('sms', phone, 'rental_payment_confirmation', {
-        tenant_name: tenant.tenant_name,
-        month: payment.month,
-        year: payment.year,
-        amount_paid: payment.amount_paid_kes,
-        outstanding: payment.amount_outstanding_kes,
-        mpesa_receipt: payment.mpesa_receipt_number
-      });
-      console.log(`[Callback Rental] SMS queued for tenant ${phone}`);
-    } catch (err) {
-      console.error(`[Callback Rental] Failed to queue SMS: ${err.message}`);
-    }
-
-    return {
-      success: true,
-      tenant_id: tenant.id,
-      contract_id: contract.id,
-      payment_id: payment.id,
-      status: 'confirmed',
-      amount_paid: payment.amount_paid_kes
-    };
-  } catch (err) {
-    await trx.rollback();
-    console.error(`[Callback Rental] Transaction error: ${err.message}`);
-    return { success: false, reason: err.message };
-  }
-}
-
-// ─── POST /api/mpesa/stk-push ──────────────────────────────────────────────
-//
-// Creates a booking record then fires the STK Push to Safaricom.
-// Browser receives { bookingId, checkoutRequestId } and polls /status.
-//
-router.post('/stk-push', async (req, res) => {
-  try {
-    const {
-      phone, amount,
-      type, unitId, property,
-      guestName, guestPhone, guestEmail,
-      checkin, checkout, nights, guests, notes,
-    } = req.body;
-
-    // ── Validate ──
-    const normPhone = normalisePhone(phone);
-    if (!normPhone) {
-      return res.status(400).json({ ok: false, error: 'Invalid phone number. Use 07XX or 01XX format.' });
-    }
-
-    const normAmount = validateAmount(amount);
-    if (!normAmount) {
-      return res.status(400).json({ ok: false, error: 'Invalid amount.' });
-    }
-
-    if (!guestName || !guestName.trim()) {
-      return res.status(400).json({ ok: false, error: 'Guest name is required.' });
-    }
-
-    // ── Determine flow: Rental vs B&B ──
-    const isRental = type === 'rental';
-    
-    // ── Create pending record (booking or rental deposit) ──
     let record;
-    if (isRental) {
-      record = await rentalStore.create({
-        unitId:      unitId || 'unknown',
-        property:    property || 'nyathira',
-        guestName:   guestName.trim(),
-        guestPhone:  guestPhone || phone,
-        guestEmail:  guestEmail || '',
-        checkin:     checkin || null,
-        amount:      normAmount,
-        notes:       notes || '',
-      });
-    } else {
-      record = await store.create({
-        type:        'bnb',
-        unitId:      unitId || 'unknown',
-        property:    property || 'nyathira',
-        guestName:   guestName.trim(),
-        guestPhone:  guestPhone || phone,
-        guestEmail:  guestEmail || '',
-        checkin:     checkin || null,
-        checkout:    checkout || null,
-        nights:      nights || 1,
-        guests:      guests || 1,
-        amount:      normAmount,
-        notes:       notes || '',
-      });
+    if (kind === 'bnb') record = await createBooking(trx, unit, payload, 'pending');
+    else {
+      const end = new Date(Date.parse(payload.checkin) + 31 * 86400000).toISOString().slice(0, 10);
+      await assertAvailable(trx, unit, payload.checkin, end);
+      const other = await trx('rental_deposits').where('unit_id', unit.id).where(q => q.where('status', 'confirmed').orWhere(b => b.where('status', 'pending').where('created_at', '>', new Date(Date.now() - 900000)))).first();
+      if (other) throw new h.HttpError(409, 'This unit already has a deposit or a payment in progress');
+      [record] = await trx('rental_deposits').insert({ id: crypto.randomUUID(), unit_id: unit.id, property_id: unit.property_id,
+        guest_name: payload.guestName, guest_phone: payload.guestPhone, guest_email: payload.guestEmail,
+        intended_checkin_date: payload.checkin, deposit_amount_kes: unit.base_price_kes * 2 + unit.water_deposit_kes,
+        monthly_rent_kes: unit.base_price_kes, security_deposit_kes: unit.base_price_kes, utilities_deposit_kes: unit.water_deposit_kes,
+        guest_notes: payload.notes, reference: `NYH-${crypto.randomBytes(8).toString('hex').toUpperCase()}` }).returning('*');
     }
-
-    // ── Fire STK Push ──
-    const darajaRes = await daraja.stkPush({
-      phone:  normPhone,
-      amount: normAmount,
-      ref:    record.ref,
-    });
-
-    // Daraja always returns ResponseCode "0" for accepted requests
-    if (darajaRes.ResponseCode !== '0') {
-      return res.status(502).json({
-        ok:    false,
-        error: darajaRes.errorMessage || 'STK Push rejected by Safaricom.',
-        daraja: darajaRes,
-      });
-    }
-
-    // ── Attach CheckoutRequestID ──
-    const recordId = isRental ? record.depositId : record.bookingId;
-    const activeStore = isRental ? rentalStore : store;
-    await activeStore.attachCheckout(recordId, darajaRes.CheckoutRequestID);
-
-    const logId = isRental ? `depositId=${recordId}` : `bookingId=${recordId}`;
-    console.log(`[STK] Sent → ${logId}  checkout=${darajaRes.CheckoutRequestID}  amount=${normAmount}  phone=${normPhone}`);
-
-    return res.json({
-      ok:               true,
-      bookingId:        recordId,
-      ref:              record.ref,
-      checkoutRequestId: darajaRes.CheckoutRequestID,
-      customerMessage:  darajaRes.CustomerMessage,
-    });
-
-  } catch (err) {
-    console.error('[STK] Error:', err.response?.data || err.message);
-    return res.status(500).json({
-      ok:    false,
-      error: err.response?.data?.errorMessage || err.message || 'Server error',
-    });
-  }
-});
-
-// ─── POST /api/mpesa/callback ──────────────────────────────────────────────
-//
-// Safaricom POSTs here after the user enters their PIN.
-// DUAL-FLOW ROUTING:
-//   1. Extract phone from callback metadata
-//   2. Check if phone matches a tenant (rental payment)
-//   3. If yes → apply payment to rental contract
-//   4. If no → apply payment to BnB booking (existing logic)
-// 
-// Must respond with { ResultCode: 0, ResultDesc: "Success" } quickly
-// — Safaricom retries if you take >10 seconds or return non-200.
-//
-router.post('/callback', async (req, res) => {
-  // Acknowledge immediately — never let Safaricom wait
-  res.json({ ResultCode: 0, ResultDesc: 'Success' });
-  console.log('[Callback] Received:', JSON.stringify(req.body));
-
-  try {
-    const body = req.body?.Body?.stkCallback;
-    if (!body) {
-      console.warn('[Callback] Unexpected payload shape:', JSON.stringify(req.body));
-      return;
-    }
-
-    const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = body;
-    console.log(`[Callback] CheckoutRequestID=${CheckoutRequestID}  ResultCode=${ResultCode}  Desc="${ResultDesc}"`);
-
-    if (String(ResultCode) === '0') {
-      // Payment successful — extract metadata items
-      const items = CallbackMetadata?.Item || [];
-      const get   = (name) => items.find(i => i.Name === name)?.Value ?? null;
-
-      const mpesaReceiptNumber = get('MpesaReceiptNumber');
-      const transactionDate = String(get('TransactionDate'));
-      const phoneNumber = String(get('PhoneNumber'));
-      const amount = validateAmount(get('Amount'));
-
-      const normPhone = normalisePhone(phoneNumber);
-      if (!normPhone) {
-        console.error(`[Callback] Invalid phone in callback: ${phoneNumber}`);
-        return;
-      }
-
-      // ─────────────────────────────────────────────────────────────────
-      // DUAL-FLOW ROUTING: Check rental_deposits first, then fall to BnB
-      // ─────────────────────────────────────────────────────────────────
-      console.log(`[Callback] Attempting dual-flow routing for ${normPhone}...`);
-
-      // Step 1: Check if this is a rental deposit
-      let rentalDeposit = null;
-      try {
-        rentalDeposit = await db('rental_deposits')
-          .where('checkout_request_id', CheckoutRequestID)
-          .first();
-        
-        if (rentalDeposit) {
-          console.log(`[Callback] Found rental_deposit: id=${rentalDeposit.id} | status=${rentalDeposit.status}`);
-        }
-      } catch (err) {
-        console.warn(`[Callback] Error checking rental_deposits: ${err.message}`);
-      }
-
-      // Step 2: If rental deposit found, get the unit details for rental flow context
-      let rentalBooking = null;
-      if (rentalDeposit) {
-        try {
-          const unit = await db('units').where('id', rentalDeposit.unit_id).first();
-          rentalBooking = {
-            ref: rentalDeposit.reference,
-            guestName: rentalDeposit.guest_name,
-            guestEmail: rentalDeposit.guest_email,
-            guestPhone: rentalDeposit.guest_phone,
-            unit_id: rentalDeposit.unit_id,
-            property_id: rentalDeposit.property_id,
-            checkin_date: rentalDeposit.checkin_date,
-            amount: rentalDeposit.amount_kes
-          };
-          console.log(`[Callback] Prepared rental booking context: ${rentalBooking.guestName}`);
-        } catch (err) {
-          console.warn(`[Callback] Error preparing rental context: ${err.message}`);
-        }
-      }
-
-      // Step 3: Try rental flow if deposit found
-      let rentalResult = null;
-      if (rentalDeposit) {
-        try {
-          rentalResult = await handleRentalPayment({
-            phone: normPhone,
-            amount,
-            mpesaReceiptNumber,
-            transactionDate,
-            booking: rentalBooking
-          });
-          
-          if (rentalResult && rentalResult.success) {
-            // Update rental_deposits record with tenant+contract IDs
-            await db('rental_deposits')
-              .where('id', rentalDeposit.id)
-              .update({
-                tenant_id: rentalResult.tenant_id,
-                contract_id: rentalResult.contract_id,
-                mpesa_receipt_number: mpesaReceiptNumber,
-                mpesa_phone: normPhone,
-                status: 'confirmed'
-              });
-            
-            console.log(`[Callback] ✅ RENTAL DEPOSIT confirmed | tenant_id=${rentalResult.tenant_id} | contract_id=${rentalResult.contract_id}`);
-            return;
-          }
-        } catch (err) {
-          console.error(`[Callback] Rental flow error: ${err.message}`);
-          rentalResult = { success: false, reason: err.message };
-        }
-      }
-
-      // Step 4: If no rental deposit or rental flow failed, try BnB booking
-      if (!rentalDeposit || !rentalResult || !rentalResult.success) {
-        console.log(`[Callback] Falling back to BnB flow (rental_deposit=${!!rentalDeposit}, result=${rentalResult ? rentalResult.success : 'none'})`);
-
-        const booking = await store.confirm(CheckoutRequestID, {
-          mpesaReceiptNumber,
-          transactionDate,
-          phoneNumber: normPhone,
-        });
-
-        if (booking) {
-          console.log(`[Callback] ✅ BNB BOOKING confirmed | bookingId=${booking.bookingId} | receipt=${booking.mpesaReceiptNumber}`);
-
-          // ── Queue booking with payment confirmation notifications (SMS + Email) ──
-          if (booking.guestEmail) {
-            try {
-              const messagePhoneNumber = booking.confirmedPhone || booking.guestPhone;
-              msgQueue.queueBookingWithPaymentConfirmationMessages(
-                messagePhoneNumber,
-                booking.guestEmail,
-                {
-                  ref: booking.ref,
-                  guestName: booking.guestName,
-                  mpesaReceiptNumber: booking.mpesaReceiptNumber,
-                  amount: booking.amount,
-                  checkin: booking.checkin,
-                  checkout: booking.checkout,
-                  property: booking.property,
-                  transactionDate: booking.transactionDate,
-                  nights: booking.nights,
-                }
-              );
-              console.log(`[Callback] Messages queued for booking ${booking.bookingId}`);
-            } catch (msgErr) {
-              console.error(`[Callback] Failed to queue messages: ${msgErr.message}`);
-            }
-          }
-        } else {
-          console.warn(`[Callback] No booking or deposit found for CheckoutRequestID=${CheckoutRequestID}`);
-        }
-      }
-
-    } else {
-      // Payment failed (wrong PIN, cancelled, insufficient funds, timeout)
-      
-      // Check rental_deposits first
-      let rentalDeposit = await db('rental_deposits')
-        .where('checkout_request_id', CheckoutRequestID)
-        .first();
-      
-      if (rentalDeposit) {
-        // Mark rental deposit as failed
-        await db('rental_deposits')
-          .where('id', rentalDeposit.id)
-          .update({ status: 'failed' });
-        
-        console.log(`[Callback] ❌ RENTAL DEPOSIT FAILED | depositId=${rentalDeposit.id} | reason="${ResultDesc}"`);
-      } else {
-        // Fall back to BnB booking failure
-        const booking = await store.fail(CheckoutRequestID, ResultDesc);
-        if (booking) {
-          console.log(`[Callback] ❌ BNB BOOKING FAILED | bookingId=${booking.bookingId} | reason="${ResultDesc}"`);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[Callback] Processing error:', err.message);
-  }
-});
-
-// ─── GET /api/mpesa/status/:bookingId ─────────────────────────────────────
-//
-// Browser polls this every 3 seconds while showing the countdown timer.
-// Returns the current booking/deposit status without hitting Daraja.
-// Checks rental_deposits first, then falls back to bookings.
-//
-router.get('/status/:bookingId', async (req, res) => {
-  // Try rental_deposits first
-  let record = await db('rental_deposits')
-    .where('id', req.params.bookingId)
-    .first();
-  
-  if (!record) {
-    // Fall back to bookings
-    record = await store.getById(req.params.bookingId);
-  }
-  
-  if (!record) {
-    return res.status(404).json({ ok: false, error: 'Record not found.' });
-  }
-
-  return res.json({
-    ok:                true,
-    status:            record.status,          // pending | confirmed | failed | expired
-    ref:               record.reference || record.ref,
-    mpesaReceiptNumber: record.mpesa_receipt_number || record.mpesaReceiptNumber,
-    amount:            record.amount_kes || record.amount,
-    guestName:         record.guest_name || record.guestName,
-    property:          record.property_id || record.property,
-    unitId:            record.unit_id || record.unitId,
-    checkin:           record.checkin_date || record.checkin,
-    checkout:          record.checkout_date || record.checkout,
+    const amount = kind === 'bnb' ? record.total_amount_kes : record.deposit_amount_kes;
+    if (req.body.amount !== undefined && Number(req.body.amount) !== amount) throw new h.HttpError(409, 'The price has changed. Refresh the quote before paying.');
+    const [attempt] = await trx('payment_attempts').insert({ id: crypto.randomUUID(), property_id: unit.property_id, unit_id: unit.id,
+      idempotency_key: key, request_hash: requestHash, access_token_hash: h.hash(key), kind, record_id: record.id,
+      amount_kes: amount, phone: payload.phone, expires_at: new Date(Date.now() + 900000) }).returning('*');
+    return { attempt, created: true };
   });
-});
-
-// ─── POST /api/mpesa/query ─────────────────────────────────────────────────
-//
-// Manually query Daraja for a specific CheckoutRequestID.
-// Use this as a fallback when the callback hasn't arrived after ~30s.
-//
-router.post('/query', async (req, res) => {
-  try {
-    const { checkoutRequestId, bookingId } = req.body;
-
-    if (!checkoutRequestId) {
-      return res.status(400).json({ ok: false, error: 'checkoutRequestId required.' });
+  let attempt = result.attempt;
+  if (result.created) {
+    try {
+      const response = await merchant.client(setting).stkPush({ phone: attempt.phone, amount: attempt.amount_kes, ref: statusBody(attempt).ref });
+      if (String(response.ResponseCode) !== '0' || !response.CheckoutRequestID) {
+        await db('payment_attempts').where('id', attempt.id).update({ status: 'failed', updated_at: db.fn.now() });
+        await db(kind === 'bnb' ? 'bookings' : 'rental_deposits').where('id', attempt.record_id).update({ status: 'failed' });
+        throw new h.HttpError(502, 'The payment request was rejected. Please try again later.');
+      }
+      [attempt] = await db('payment_attempts').where('id', attempt.id).update({ checkout_request_id: response.CheckoutRequestID, merchant_request_id: response.MerchantRequestID, status: 'pending', updated_at: db.fn.now() }).returning('*');
+      await db(kind === 'bnb' ? 'bookings' : 'rental_deposits').where('id', attempt.record_id).update({ checkout_request_id: attempt.checkout_request_id });
+    } catch (err) {
+      if (err.status) throw err;
+      // An ambiguous timeout must never send another STK push on an automatic retry.
+      [attempt] = await db('payment_attempts').where('id', attempt.id).update({ status: 'needs_review', updated_at: db.fn.now() }).returning('*');
     }
-
-    const darajaRes = await daraja.stkQuery(checkoutRequestId);
-    console.log(`[Query] checkoutRequestId=${checkoutRequestId}  ResultCode=${darajaRes.ResultCode}`);
-
-    // If the query itself says success and callback hadn't arrived yet, confirm now
-    if (String(darajaRes.ResultCode) === '0' && bookingId) {
-      const b = store.getById(bookingId);
-      if (b && b.status === 'pending') {
-        store.confirm(checkoutRequestId, {
-          mpesaReceiptNumber: null,   // query response doesn't include receipt
-          transactionDate:    new Date().toISOString(),
-          phoneNumber:        b.guestPhone,
-        });
+  }
+  res.json({ ...statusBody(attempt), checkoutRequestId: attempt.checkout_request_id, accessToken: key });
+}));
+router.post('/callback/:token', h.route(async (req, res) => {
+  const token = h.z.string().regex(/^[a-f0-9]{64}$/).parse(req.params.token);
+  const setting = await db('property_merchant_settings').where('callback_token', token).first();
+  if (!setting) throw new h.HttpError(404, 'Callback not found');
+  const callback = h.z.object({ CheckoutRequestID: h.required(100), MerchantRequestID: h.required(100), ResultCode: h.z.number().int(), ResultDesc: h.text(500).optional(), CallbackMetadata: h.z.object({ Item: h.z.array(h.z.object({ Name: h.required(100), Value: h.z.union([h.z.string(), h.z.number()]).optional() })).max(20) }).optional() }).parse(req.body?.Body?.stkCallback);
+  const p = await db('properties').where('id', setting.property_id).first();
+  const attempt = await db('payment_attempts').where({ property_id: p.property_id, checkout_request_id: callback.CheckoutRequestID, merchant_request_id: callback.MerchantRequestID }).first();
+  if (!attempt) throw new h.HttpError(404, 'Payment not found');
+  // Persist before acknowledging. The maintenance worker retries across restarts.
+  if (pendingStates.includes(attempt.status) || attempt.status === 'needs_review') {
+    await db('payment_attempts').where('id', attempt.id).whereNull('callback').update({ callback: JSON.stringify(callback), updated_at: db.fn.now() });
+  }
+  res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+}));
+async function reconcile(id) {
+  const attempt = await db('payment_attempts').where('id', id).first();
+  if (!attempt?.callback || !['pending', 'initiating', 'needs_review'].includes(attempt.status)) return;
+  const p = await db('properties').where('property_id', attempt.property_id).first();
+  const setting = await db('property_merchant_settings').where('property_id', p.id).first();
+  if (!setting) return;
+  const provider = merchant.client({ ...setting, credentials: merchant.decrypt(setting.credentials_encrypted) });
+  const verified = await provider.stkQuery(attempt.checkout_request_id);
+  if (verified.ResultCode === undefined) return;
+  const callback = attempt.callback;
+  const get = name => callback.CallbackMetadata?.Item.find(i => i.Name === name)?.Value;
+  let status = String(verified.ResultCode) === '0' ? 'confirmed' : (String(verified.ResultCode) === String(callback.ResultCode) && callback.ResultCode !== 0 ? 'failed' : 'needs_review');
+  if (status === 'confirmed' && (callback.ResultCode !== 0 || Number(get('Amount')) !== attempt.amount_kes || String(get('PhoneNumber')) !== attempt.phone || !/^[A-Z0-9]{6,50}$/.test(String(get('MpesaReceiptNumber') || '')))) status = 'needs_review';
+  await db.transaction(async trx => {
+    const unit = await trx('units').where('id', attempt.unit_id).forUpdate().first();
+    const current = await trx('payment_attempts').where('id', attempt.id).forUpdate().first();
+    if (current.status === 'confirmed' || current.status === 'failed') return;
+    const table = attempt.kind === 'bnb' ? 'bookings' : 'rental_deposits';
+    const record = await trx(table).where('id', attempt.record_id).forUpdate().first();
+    if (status === 'confirmed' && attempt.kind === 'bnb') {
+      if (record.status === 'cancelled') status = 'needs_review';
+      else try { await assertAvailable(trx, unit, record.checkin_date, record.checkout_date, record.id); } catch (err) { if (err.status !== 409) throw err; status = 'needs_review'; }
+    }
+    if (status === 'confirmed' && attempt.kind === 'rental') {
+      const start = record.intended_checkin_date;
+      const conflict = await trx('rental_contracts').where('unit_id', unit.id).whereIn('status', ['active', 'suspended']).where(q => q.whereNull('end_date').orWhere('end_date', '>', start)).first();
+      const reserved = await trx('bookings').where('unit_id', unit.id).where('checkout_date', '>', start).where(q => q.where('status', 'confirmed').orWhere(b => b.where('status', 'pending').where('created_at', '>', new Date(Date.now() - 900000)))).first();
+      const blocked = await trx('availability_blocks').where('unit_id', unit.id).where('end_date', '>', start).first();
+      if (unit.status !== 'active' || conflict || reserved || blocked || record.contract_id || !record.monthly_rent_kes) status = 'needs_review';
+      else {
+        let tenant = await trx('tenants').where({ property_id: unit.property_id, tenant_phone: record.guest_phone }).first();
+        if (!tenant) [tenant] = await trx('tenants').insert({ property_id: unit.property_id, tenant_phone: record.guest_phone, tenant_name: record.guest_name, tenant_email: record.guest_email }).onConflict(['property_id','tenant_phone']).merge(['tenant_phone']).returning('*');
+        const [contract] = await trx('rental_contracts').insert({ tenant_id: tenant.id, unit_id: unit.id, property_id: unit.property_id,
+          start_date: start, monthly_rent_kes: record.monthly_rent_kes, security_deposit_kes: record.security_deposit_kes,
+          utilities_deposit_kes: record.utilities_deposit_kes, status: 'active', contract_notes: 'Created from verified move-in payment' }).returning('*');
+        const [payment] = await trx('rental_payments').insert({ contract_id: contract.id, tenant_id: tenant.id, unit_id: unit.id,
+          month: Number(start.slice(5,7)), year: Number(start.slice(0,4)), due_date: start, paid_date: new Date().toISOString().slice(0,10),
+          amount_due_kes: record.monthly_rent_kes, amount_paid_kes: record.monthly_rent_kes, amount_outstanding_kes: 0,
+          status: 'paid', mpesa_receipt_number: String(get('MpesaReceiptNumber')) }).returning('*');
+        await trx('payment_ledger').insert({ contract_id: contract.id, payment_id: payment.id, idempotency_key: attempt.id,
+          amount_kes: record.monthly_rent_kes, receipt: String(get('MpesaReceiptNumber')) });
+        await trx('rental_deposits').where('id', record.id).update({ tenant_id: tenant.id, contract_id: contract.id });
       }
     }
-
-    return res.json({ ok: true, daraja: darajaRes });
-  } catch (err) {
-    console.error('[Query] Error:', err.response?.data || err.message);
-    return res.status(500).json({
-      ok:    false,
-      error: err.response?.data?.errorMessage || err.message,
-    });
-  }
-});
-
-// ─── GET /api/mpesa/bookings ───────────────────────────────────────────────
-// Simple admin view — list all bookings (protect with auth in production!)
-router.get('/bookings', (req, res) => {
-  res.json({ ok: true, bookings: store.list() });
-});
-
+    await trx('payment_attempts').where('id', attempt.id).update({ status, receipt: status === 'confirmed' ? String(get('MpesaReceiptNumber')) : null, updated_at: trx.fn.now() });
+    if (status !== 'needs_review') await trx(table).where('id', record.id).update({ status, mpesa_receipt_number: status === 'confirmed' ? String(get('MpesaReceiptNumber')) : null, mpesa_phone: attempt.phone, updated_at: trx.fn.now() });
+    if (attempt.kind === 'bnb') await trx('audit_log').insert({ booking_id: record.id, transaction_type: status === 'confirmed' ? 'confirmed' : status === 'failed' ? 'failed' : 'callback', amount_kes: attempt.amount_kes, result_code: Number(verified.ResultCode), result_desc: status === 'needs_review' ? 'Payment requires manual review' : status });
+  });
+}
+router.get('/status/:bookingId', h.route(async (req, res) => { const attempt = await authorizedAttempt(req); res.json(statusBody(attempt)); }));
+router.post('/query', h.rateLimit('payment-query', 20, 60000), h.route(async (req, res) => {
+  const attempt = await authorizedAttempt(req);
+  if (attempt.callback) await reconcile(attempt.id);
+  res.json(statusBody(await db('payment_attempts').where('id', attempt.id).first()));
+}));
+router.get('/bookings', auth.adminAuthMiddleware, h.route(async (req, res) => res.json({ ok: true, bookings: await access.scope(db('bookings'), req).orderBy('created_at', 'desc').limit(100) })));
+async function runMaintenance() {
+  const attempts = await db('payment_attempts').whereNotNull('callback').whereIn('status', ['pending', 'initiating']).orderBy('updated_at').limit(30);
+  for (const attempt of attempts) { try { await reconcile(attempt.id); } catch { /* Durable callback stays available for the next run. */ } }
+  await db('payment_attempts').whereIn('status', pendingStates).where('expires_at', '<', new Date()).whereNull('callback').update({ status: 'needs_review', updated_at: db.fn.now() });
+  await db('rate_limits').where('expires_at', '<', Date.now()).delete();
+  await db('admin_sessions').where('expires_at', '<', new Date()).delete();
+}
 module.exports = router;
+module.exports.reconcile = reconcile;
+module.exports.runMaintenance = runMaintenance;

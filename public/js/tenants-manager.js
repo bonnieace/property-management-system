@@ -11,11 +11,11 @@ const tenantsManager = {
    * Initialize tenants manager
    */
   async init() {
-    console.log('👤 [TenantsManager.init] Initializing tenants manager');
-    console.log('👤 [TenantsManager.init] Current state:', { token: state.token ? '✓ SET' : '✗ MISSING', API_BASE });
+
+
     await this.loadTenants();
     this.attachEventListeners();
-    console.log('👤 [TenantsManager.init] Initialization complete');
+
   },
 
   /**
@@ -23,8 +23,7 @@ const tenantsManager = {
    */
   async loadTenants() {
     try {
-      console.log('👤 [TenantsManager.loadTenants] Fetching tenants from API...');
-      
+
       // Check if token exists
       if (!state.token) {
         console.error('👤 [TenantsManager.loadTenants] ❌ NO AUTH TOKEN - User not logged in!');
@@ -35,15 +34,11 @@ const tenantsManager = {
         return;
       }
 
-      console.log(`👤 [TenantsManager.loadTenants] Auth token present (${state.token.substring(0, 20)}...)`);
-      console.log(`👤 [TenantsManager.loadTenants] Calling: ${API_BASE}/api/admin/tenants`);
 
       const response = await fetch(`${API_BASE}/api/admin/tenants`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${state.token}` }
       });
-
-      console.log(`👤 [TenantsManager.loadTenants] Response status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         const errorBody = await response.text();
@@ -56,7 +51,7 @@ const tenantsManager = {
       }
 
       const result = await response.json();
-      console.log(`👤 [TenantsManager.loadTenants] ✓ Loaded ${result.data?.length || 0} tenants`);
+
       this.tenants = result.data || [];
       this.renderTenantsTable();
     } catch (err) {
@@ -81,8 +76,6 @@ const tenantsManager = {
       return;
     }
 
-    console.log(`👤 [TenantsManager.renderTenantsTable] Rendering ${this.tenants.length} tenants`);
-
     if (this.tenants.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 32px;">No tenants found</td></tr>';
       return;
@@ -91,10 +84,10 @@ const tenantsManager = {
     tbody.innerHTML = this.tenants.map(tenant => `
       <tr>
         <td>${tenant.id || '—'}</td>
-        <td><strong>${tenant.tenant_name || 'N/A'}</strong></td>
-        <td>${tenant.tenant_phone || '—'}</td>
-        <td>${tenant.tenant_email || '—'}</td>
-        <td>${tenant.notes ? tenant.notes.substring(0, 30) + '...' : '—'}</td>
+        <td><strong>${escapeHtml(tenant.tenant_name || 'N/A')}</strong></td>
+        <td>${escapeHtml(tenant.tenant_phone || '—')}</td>
+        <td>${escapeHtml(tenant.tenant_email || '—')}</td>
+        <td>${tenant.notes ? escapeHtml(tenant.notes.substring(0, 30)) + '...' : '—'}</td>
         <td>
           <div style="display: flex; gap: 4px;">
             <button onclick="tenantsManager.openEditModal(${tenant.id})" class="btn-icon" title="Edit">
@@ -141,7 +134,7 @@ const tenantsManager = {
     
     const form = document.getElementById('tenantForm');
     if (form) {
-      document.getElementById('tenantFormTitle').textContent = `Edit ${tenant.tenant_name}`;
+      document.getElementById('tenantFormTitle').textContent = `Edit ${escapeHtml(tenant.tenant_name)}`;
       document.getElementById('tenantNameInput').value = tenant.tenant_name || '';
       document.getElementById('tenantPhoneInput').value = tenant.tenant_phone;
       document.getElementById('tenantEmailInput').value = tenant.tenant_email || '';
@@ -185,13 +178,13 @@ const tenantsManager = {
           tenant_name: name,
           tenant_phone: phone,
           tenant_email: email,
-          tenant_notes: notes
+          notes: notes
         })
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to save tenant');
+        throw new Error(error.error || error.message || 'Failed to save tenant');
       }
 
       alert(this.currentTenantId ? 'Tenant updated successfully' : 'Tenant created successfully');

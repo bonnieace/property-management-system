@@ -13,11 +13,11 @@ const paymentsManager = {
    * Initialize payments manager
    */
   async init() {
-    console.log('💰 [PaymentsManager.init] Initializing payments manager');
+
     await this.loadContracts();
     await this.loadPayments();
     this.attachEventListeners();
-    console.log('💰 [PaymentsManager.init] Initialization complete');
+
   },
 
   /**
@@ -44,7 +44,7 @@ const paymentsManager = {
    */
   async loadPayments(contractId = null) {
     try {
-      console.log('💰 [PaymentsManager.loadPayments] Fetching payments from API...');
+
       this.filterContractId = contractId;
       
       let url = `${API_BASE}/api/admin/payments`;
@@ -89,8 +89,8 @@ const paymentsManager = {
     tbody.innerHTML = this.payments.map(payment => `
       <tr>
         <td>${payment.id || '—'}</td>
-        <td><strong>${payment.tenant_name || 'N/A'}</strong></td>
-        <td>${payment.unit_code || '—'}</td>
+        <td><strong>${escapeHtml(payment.tenant_name || 'N/A')}</strong></td>
+        <td>${escapeHtml(payment.unit_code || '—')}</td>
         <td>${(payment.month || '—')}/${(payment.year || '—')}</td>
         <td>KES ${Number(payment.amount_paid_kes || 0).toLocaleString()}</td>
         <td>KES ${Number(payment.amount_outstanding_kes || 0).toLocaleString()}</td>
@@ -150,8 +150,8 @@ const paymentsManager = {
       tbody.innerHTML = payments.map(payment => `
         <tr>
           <td>${payment.id || '—'}</td>
-          <td><strong>${payment.tenant_name || 'N/A'}</strong></td>
-          <td>${payment.unit_code || '—'}</td>
+          <td><strong>${escapeHtml(payment.tenant_name || 'N/A')}</strong></td>
+          <td>${escapeHtml(payment.unit_code || '—')}</td>
           <td>${(payment.month || '—')}/${(payment.year || '—')}</td>
           <td>KES ${Number(payment.amount_paid_kes || 0).toLocaleString()}</td>
           <td>KES ${Number(payment.amount_outstanding_kes || 0).toLocaleString()}</td>
@@ -179,6 +179,7 @@ const paymentsManager = {
    * Open record payment modal
    */
   openRecordPaymentModal() {
+    this.paymentRequestKey = null;
     this.currentPaymentId = null;
     const modal = document.getElementById('recordPaymentModal') || this.createRecordPaymentModal();
     
@@ -196,6 +197,7 @@ const paymentsManager = {
    * Record payment
    */
   async recordPayment(paymentId = null) {
+    this.paymentRequestKey = null;
     if (paymentId) {
       // Record additional payment for existing payment
       this.currentPaymentId = paymentId;
@@ -205,10 +207,10 @@ const paymentsManager = {
       const modal = document.getElementById('recordPaymentModal') || this.createRecordPaymentModal();
       const form = document.getElementById('recordPaymentForm');
       if (form) {
-        document.getElementById('recordPaymentFormTitle').textContent = `Record Additional Payment - ${payment.tenant_name}`;
+        document.getElementById('recordPaymentFormTitle').textContent = `Record Additional Payment - ${escapeHtml(payment.tenant_name)}`;
         document.getElementById('recordPaymentContractInput').value = payment.contract_id;
-        document.getElementById('recordPaymentMonthInput').value = payment.payment_month;
-        document.getElementById('recordPaymentYearInput').value = payment.payment_year;
+        document.getElementById('recordPaymentMonthInput').value = payment.month;
+        document.getElementById('recordPaymentYearInput').value = payment.year;
         document.getElementById('recordPaymentAmountInput').value = '';
         document.getElementById('recordPaymentSubmitBtn').textContent = 'Record Payment';
       }
@@ -228,7 +230,7 @@ const paymentsManager = {
     const month = Number(document.getElementById('recordPaymentMonthInput').value);
     const year = Number(document.getElementById('recordPaymentYearInput').value);
     const amount = Number(document.getElementById('recordPaymentAmountInput').value);
-    console.log('💰 [PaymentsManager.saveRecordedPayment] Saving payment with data:', { contractId, month, year, amount });
+
     if (!contractId || !month || !year || !amount) {
       alert('All fields are required');
       return;
@@ -247,6 +249,7 @@ const paymentsManager = {
         return;
       }
 
+      this.paymentRequestKey ||= crypto.randomUUID();
       const response = await fetch(`${API_BASE}/api/admin/payments`, {
         method: 'POST',
         headers: {
@@ -254,6 +257,7 @@ const paymentsManager = {
           'Authorization': `Bearer ${state.token}`
         },
         body: JSON.stringify({
+          idempotency_key: this.paymentRequestKey,
           contract_id: contractId,
           tenant_id: contract.tenant_id,
           unit_id: contract.unit_id,
@@ -265,10 +269,10 @@ const paymentsManager = {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to record payment');
+        throw new Error(error.error || error.message || 'Failed to record payment');
       }
 
-      alert('Payment recorded successfully');
+      this.paymentRequestKey = null; alert('Payment recorded successfully');
       this.closeRecordPaymentModal();
       await this.loadPayments(this.filterContractId);
     } catch (err) {
@@ -288,9 +292,9 @@ const paymentsManager = {
 Payment Details:
 ─────────────────────
 ID: ${payment.id}
-Tenant: ${payment.tenant_name}
-Unit: ${payment.unit_code}
-Month/Year: ${payment.payment_month}/${payment.payment_year}
+Tenant: ${escapeHtml(payment.tenant_name)}
+Unit: ${escapeHtml(payment.unit_code)}
+Month/Year: ${payment.month}/${payment.year}
 Amount Paid: KES ${Number(payment.amount_paid).toLocaleString()}
 Outstanding: KES ${Number(payment.amount_outstanding).toLocaleString()}
 Status: ${payment.status}
@@ -305,7 +309,7 @@ Recorded: ${new Date(payment.created_at).toLocaleDateString()}
    */
   createRecordPaymentModal() {
     const contractOptions = this.contracts.map(c => `
-      <option value="${c.id}">${c.tenant_name} - Unit ${c.unit_code} (KES ${Number(c.monthly_rent_kes).toLocaleString()})</option>
+      <option value="${c.id}">${escapeHtml(c.tenant_name)} - Unit ${escapeHtml(c.unit_code)} (KES ${Number(c.monthly_rent_kes).toLocaleString()})</option>
     `).join('');
 
     const modal = document.createElement('div');
