@@ -8,6 +8,7 @@
     "dev": "node --watch server.js",
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
+    "deploy:migrate": "node scripts/deploy-migrate.js",
     "seed:run": "knex seed:run",
     "test": "node --test test/*.test.js",
     "check": "node scripts/check-js.js",
