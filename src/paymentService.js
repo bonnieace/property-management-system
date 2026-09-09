@@ -10,94 +10,69 @@ const db = require('./db');
  * Create or get payment record for a tenant in a specific month
  * Handles monthly reconciliation
  */
-async function recordPayment({
-  contract_id,
-  tenant_id,
-  unit_id,
-  month,  // 1-12
-  year,   // 2024, 2025, etc
-  amount_paid_kes,
-  mpesa_receipt,
-  mpesa_phone,
-  mpesa_reference,
-  notes
-}) {
-  try {
-    // Validate contract exists
-    const contract = await db('rental_contracts').where('id', contract_id).first();
-    if (!contract) {
-      throw new Error(`Contract ${contract_id} not found`);
+async function recordPayment(input) {
+  const { integer, required, HttpError } = require('./http');
+  const amount = integer(1).parse(input.amount_paid_kes);
+  const month = integer(1, 12).parse(input.month);
+  const year = integer(2000, 2200).parse(input.year);
+  const key = required(100).parse(input.idempotency_key);
+  const id = await db.transaction(async trx => {
+    const contract = await trx('rental_contracts').where('id', input.contract_id).forUpdate().first();
+    if (!contract) throw new HttpError(404, 'Contract not found');
+    if (contract.tenant_id !== Number(input.tenant_id) || contract.unit_id !== Number(input.unit_id)) throw new HttpError(400, 'Payment does not match the contract');
+    const previous = await trx('payment_ledger').where({ contract_id: contract.id, idempotency_key: key }).first();
+    if (previous) {
+      const p = await trx('rental_payments').where('id', previous.payment_id).first();
+      if (previous.amount_kes !== amount || p.month !== month || p.year !== year) throw new HttpError(409, 'This payment reference was already used for a different payment');
+      return p.id;
     }
-
-    // Validate month/year
-    if (!month || !year || month < 1 || month > 12) {
-      throw new Error('Invalid month (1-12) or year');
+    let payment = await trx('rental_payments').where({ contract_id: contract.id, month, year }).first();
+    if (!payment) {
+      [payment] = await trx('rental_payments').insert({
+        contract_id: contract.id, tenant_id: contract.tenant_id, unit_id: contract.unit_id, month, year,
+        amount_due_kes: contract.monthly_rent_kes, amount_paid_kes: 0, amount_outstanding_kes: contract.monthly_rent_kes,
+        due_date: `${year}-${String(month).padStart(2, '0')}-01`
+      }).returning('*');
     }
+    const paid = payment.amount_paid_kes + amount;
+    integer(0).parse(paid);
+    await trx('rental_payments').where('id', payment.id).update({
+      amount_paid_kes: paid, amount_outstanding_kes: Math.max(0, payment.amount_due_kes - paid),
+      status: paid >= payment.amount_due_kes ? 'paid' : 'partial',
+      paid_date: paid >= payment.amount_due_kes ? new Date().toISOString().slice(0, 10) : null,
+      mpesa_receipt_number: input.mpesa_receipt || payment.mpesa_receipt_number,
+      notes: input.notes || payment.notes, updated_at: trx.fn.now()
+    });
+    await trx('payment_ledger').insert({ contract_id: contract.id, payment_id: payment.id, idempotency_key: key, amount_kes: amount, receipt: input.mpesa_receipt || null });
+    return payment.id;
+  });
+  return getPaymentById(id);
+}
 
-    // Calculate due date (1st of the month)
-    const dueDate = new Date(year, month - 1, 1);
-
-    // Check if payment record exists for this month
-    let payment = await db('rental_payments')
-      .where('contract_id', contract_id)
-      .where('month', month)
-      .where('year', year)
-      .first();
-
-    if (payment) {
-      // Update existing payment record (accumulate multiple payments per month)
-      const newPaidAmount = (payment.amount_paid_kes || 0) + amount_paid_kes;
-      const amountDue = payment.amount_due_kes || contract.monthly_rent_kes;
-      const newOutstanding = Math.max(0, amountDue - newPaidAmount);
-
-      let status = 'pending';
-      if (newPaidAmount >= amountDue) {
-        status = 'paid';
-      } else if (newPaidAmount > 0) {
-        status = 'partial';
+// Materialize months with no payment, so unpaid rent does not vanish from arrears.
+async function ensureMonthlyDues(tenantId) {
+  const contracts = await db('rental_contracts').where('tenant_id', tenantId);
+  for (const c of contracts) {
+    await db.transaction(async trx => {
+      await trx('rental_contracts').where('id', c.id).forUpdate().first();
+      const today = new Date().toISOString().slice(0, 10);
+      const end = c.end_date && c.end_date < today ? c.end_date : today;
+      let cursor = new Date(`${c.start_date.slice(0, 7)}-01T00:00:00Z`);
+      const periods = [];
+      while (cursor.toISOString().slice(0, 10) <= end && periods.length < 1200) {
+        const month = cursor.getUTCMonth() + 1, year = cursor.getUTCFullYear();
+        const due = cursor.toISOString().slice(0, 10) < c.start_date ? c.start_date : cursor.toISOString().slice(0, 10);
+        if (due > today || (c.end_date && due >= c.end_date)) break;
+        periods.push({ month, year, due });
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
       }
-
-      await db('rental_payments').where('id', payment.id).update({
-        amount_paid_kes: newPaidAmount,
-        amount_outstanding_kes: newOutstanding,
-        status,
-        paid_date: status === 'paid' ? new Date().toISOString().split('T')[0] : payment.paid_date,
-        mpesa_receipt_number: mpesa_receipt || payment.mpesa_receipt_number,
-        mpesa_phone: mpesa_phone || payment.mpesa_phone,
-        reference: mpesa_reference || payment.reference,
-        notes: notes || payment.notes,
-        updated_at: new Date().toISOString()
-      });
-
-      return await getPaymentById(payment.id);
-    }
-
-    // Create new payment record
-    const newPayment = {
-      contract_id,
-      tenant_id,
-      unit_id,
-      month,
-      year,
-      amount_due_kes: contract.monthly_rent_kes,
-      amount_paid_kes,
-      amount_outstanding_kes: Math.max(0, contract.monthly_rent_kes - amount_paid_kes),
-      status: amount_paid_kes >= contract.monthly_rent_kes ? 'paid' : (amount_paid_kes > 0 ? 'partial' : 'pending'),
-      due_date: dueDate.toISOString().split('T')[0],
-      paid_date: amount_paid_kes >= contract.monthly_rent_kes ? new Date().toISOString().split('T')[0] : null,
-      mpesa_receipt_number: mpesa_receipt || null,
-      mpesa_phone: mpesa_phone || null,
-      reference: mpesa_reference || null,
-      notes: notes || null
-    };
-
-    const result = await db('rental_payments').insert(newPayment).returning('id');
-    const id = Array.isArray(result) ? result[0].id : result.id;
-
-    return await getPaymentById(id);
-  } catch (err) {
-    console.error('[recordPayment]', err.message);
-    throw err;
+      for (const period of periods) {
+        const exists = await trx('rental_payments').where({ contract_id: c.id, month: period.month, year: period.year }).first();
+        if (!exists) await trx('rental_payments').insert({ contract_id: c.id, tenant_id: c.tenant_id, unit_id: c.unit_id,
+          month: period.month, year: period.year, amount_due_kes: c.monthly_rent_kes, amount_paid_kes: 0,
+          amount_outstanding_kes: c.monthly_rent_kes, status: period.due < today ? 'late' : 'pending', due_date: period.due });
+      }
+    });
   }
 }
 
@@ -118,7 +93,7 @@ async function getPaymentById(id) {
 
     return payment || null;
   } catch (err) {
-    console.error('[getPaymentById]', err.message);
+    console.error('[getPaymentById]', 'Database operation failed');
     throw err;
   }
 }
@@ -136,7 +111,7 @@ async function getMonthlyPayment(contract_id, month, year) {
 
     return payment || null;
   } catch (err) {
-    console.error('[getMonthlyPayment]', err.message);
+    console.error('[getMonthlyPayment]', 'Database operation failed');
     throw err;
   }
 }
@@ -197,7 +172,7 @@ async function listPayments({
 
     return payments;
   } catch (err) {
-    console.error('[listPayments]', err.message);
+    console.error('[listPayments]', 'Database operation failed');
     throw err;
   }
 }
@@ -207,6 +182,7 @@ async function listPayments({
  */
 async function getTenantArrears(tenant_id) {
   try {
+    await ensureMonthlyDues(tenant_id);
     const arrears = await db('rental_payments')
       .where('tenant_id', tenant_id)
       .whereIn('status', ['pending', 'partial', 'late'])
@@ -222,7 +198,7 @@ async function getTenantArrears(tenant_id) {
       records: arrears
     };
   } catch (err) {
-    console.error('[getTenantArrears]', err.message);
+    console.error('[getTenantArrears]', 'Database operation failed');
     throw err;
   }
 }
@@ -251,7 +227,7 @@ async function updatePaymentStatusToLate(payment_id) {
 
     return await getPaymentById(payment_id);
   } catch (err) {
-    console.error('[updatePaymentStatusToLate]', err.message);
+    console.error('[updatePaymentStatusToLate]', 'Database operation failed');
     throw err;
   }
 }
@@ -283,7 +259,7 @@ async function getContractPaymentSummary(contract_id) {
 
     return summary;
   } catch (err) {
-    console.error('[getContractPaymentSummary]', err.message);
+    console.error('[getContractPaymentSummary]', 'Database operation failed');
     throw err;
   }
 }

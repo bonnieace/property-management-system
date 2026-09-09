@@ -15,11 +15,10 @@ const calendarManager = {
    * Called when user navigates to Calendar page
    */
   async init() {
-    console.log('[Calendar Manager] Initializing calendar manager');
-    
+
     // Prevent double initialization - just refresh if already initialized
     if (this.initialized) {
-      console.log('[Calendar Manager] Already initialized, refreshing data...');
+
       await this.refreshCalendar();
       return;
     }
@@ -41,7 +40,7 @@ const calendarManager = {
 
       // Load units first if not already loaded
       if (!this.units || this.units.length === 0) {
-        console.log('[Calendar Manager] Loading units...');
+
         await this.loadUnits();
       }
 
@@ -49,11 +48,11 @@ const calendarManager = {
       const unitFilterContainer = document.getElementById('unitFilterContainer');
       if (window.state?.user?.property) {
         // Building-specific admin: hide filter (they only see their property's units)
-        console.log('[Calendar Manager] Building-specific admin, hiding unit filter');
+
         unitFilterContainer.style.display = 'none';
       } else {
         // Full access admin: show filter
-        console.log('[Calendar Manager] Full access admin, showing unit filter');
+
         unitFilterContainer.style.display = 'flex';
       }
 
@@ -61,7 +60,7 @@ const calendarManager = {
       this.populateUnitSelect();
 
       // Initialize FullCalendar instance
-      console.log('[Calendar Manager] Creating FullCalendar instance...');
+
       this.calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         headerToolbar: {
@@ -78,13 +77,12 @@ const calendarManager = {
       });
 
       this.calendar.render();
-      console.log('[Calendar Manager] FullCalendar rendered successfully');
-      
+
       this.initialized = true;
 
       // Load and display events
       await this.refreshCalendar();
-      console.log('[Calendar Manager] Initialization complete');
+
     } catch (err) {
       console.error('[Calendar Manager] Failed to initialize calendar:', err);
       showToast('Failed to initialize calendar', '⚠️');
@@ -96,7 +94,7 @@ const calendarManager = {
    */
   async loadUnits() {
     try {
-      const response = await fetch('/api/calendar/units');
+      const response = await fetch('/api/admin/units');
       const data = await response.json();
 
       if (data.ok && data.data) {
@@ -130,7 +128,7 @@ const calendarManager = {
       const bedroomLabel = u.bedrooms === 0 ? 'Studio' : `${u.bedrooms}B`;
       const typeLabel = u.type.toUpperCase();
       const displayLabel = `${bedroomLabel} ${typeLabel} - ${u.name || u.unit_id}`;
-      return `<option value="${u.id}">${displayLabel}</option>`;
+      return `<option value="${u.id}">${escapeHtml(displayLabel)}</option>`;
     }).join('');
 
     select.innerHTML = '<option value="">All Units</option>' + options;
@@ -191,7 +189,7 @@ const calendarManager = {
         bookingsData.data.forEach(booking => {
           events.push({
             id: `booking-${booking.id}`,
-            title: `${booking.guest_name || 'Guest'} • ${booking.unit_id}`,
+            title: `${escapeHtml(booking.guest_name || 'Guest')} • ${booking.unit_id}`,
             start: booking.checkin_date,
             end: new Date(new Date(booking.checkout_date).getTime() + 86400000).toISOString().split('T')[0],
             backgroundColor: '#7A8C6E',
@@ -216,7 +214,7 @@ const calendarManager = {
         blockedData.data.forEach(block => {
           events.push({
             id: `blocked-${block.id}`,
-            title: `🔒 Blocked (${block.reason || 'Maintenance'})`,
+            title: `🔒 Blocked (${escapeHtml(block.reason || 'Maintenance')})`,
             start: block.start_date,
             end: new Date(new Date(block.end_date).getTime() + 86400000).toISOString().split('T')[0],
             backgroundColor: '#6B6358',
@@ -254,7 +252,7 @@ const calendarManager = {
     if (ext.type === 'booking') {
       this.showEventDetail(event);
     } else if (ext.type === 'blocked') {
-      showToast(`Blocked period: ${ext.reason}`, 'ℹ️');
+      showToast(`Blocked period: ${escapeHtml(ext.reason)}`, 'ℹ️');
     }
   },
 
@@ -347,7 +345,7 @@ const calendarManager = {
     // Populate unit select
     unitSelect.innerHTML = '<option value="">Select Unit</option>' +
       (this.units || [])
-        .map(u => `<option value="${u.unit_id}">${u.name || u.unit_id}</option>`)
+        .map(u => `<option value="${u.unit_id}">${escapeHtml(u.name || u.unit_id)}</option>`)
         .join('');
 
     // If a unit is already selected in the main filter, pre-fill it

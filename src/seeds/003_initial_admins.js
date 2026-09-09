@@ -6,6 +6,7 @@
 const bcrypt = require('bcrypt');
 
 exports.seed = async function(knex) {
+  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DEMO_SEED !== 'true') throw new Error('Demo seeding is disabled. Use the onboarding flow; set ALLOW_DEMO_SEED=true only for an empty disposable development database.');
   // Delete existing admins (if reseeding)
   await knex('admin_users').del();
   await knex('admin_properties').del();

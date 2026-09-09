@@ -231,12 +231,12 @@ const accessManager = {
       const roleBadge = this.getRoleBadge(person.role);
 
       const actionBtn = person.status === 'Active'
-        ? `<button class="btn btn-sm btn-rust" onclick="accessManager.showRevokeModal('${person.id}', '${person.name}')">Revoke</button>`
+        ? `<button class="btn btn-sm btn-rust" onclick="accessManager.showRevokeModal('${person.id}', '${escapeHtml(person.name)}')">Revoke</button>`
         : `<button class="btn btn-sm" onclick="accessManager.reactivatePerson('${person.id}')" style="background: #16a34a; color: white; border: none;">Reactivate</button>`;
 
       return `
         <tr>
-          <td>${person.name}</td>
+          <td>${escapeHtml(person.name)}</td>
           <td>${person.idNumber}</td>
           <td>${roleBadge}</td>
           <td>${person.location}</td>
@@ -304,14 +304,13 @@ const accessManager = {
     };
 
     this.data.people.push(newPerson);
-    this.showToast(`Access granted to ${formData.name}`, 'success');
+    this.showToast(`Access granted to ${escapeHtml(formData.name)}`, 'success');
 
     // Clear form and re-render
     document.getElementById('addAccessForm').reset();
     this.render();
 
     // TODO: POST to /api/admin/access-control/people
-    console.log('TODO: Send to backend:', newPerson);
 
     return true;
   },
@@ -352,10 +351,9 @@ const accessManager = {
     if (!person) return;
 
     person.status = 'Revoked';
-    this.showToast(`Access revoked for ${person.name}`, 'success');
+    this.showToast(`Access revoked for ${escapeHtml(person.name)}`, 'success');
 
     // TODO: PUT to /api/admin/access-control/people/:id (status, reason)
-    console.log('TODO: Send revocation to backend:', { personId, reason });
 
     this.closeRevokeModal();
     this.render();
@@ -368,12 +366,11 @@ const accessManager = {
     const person = this.data.people.find(p => p.id === personId);
     if (!person) return;
 
-    if (confirm(`Are you sure you want to reactivate access for ${person.name}?`)) {
+    if (confirm(`Are you sure you want to reactivate access for ${escapeHtml(person.name)}?`)) {
       person.status = 'Active';
-      this.showToast(`Access reactivated for ${person.name}`, 'success');
+      this.showToast(`Access reactivated for ${escapeHtml(person.name)}`, 'success');
 
       // TODO: PUT to /api/admin/access-control/people/:id (status: Active)
-      console.log('TODO: Send reactivation to backend:', personId);
 
       this.render();
     }

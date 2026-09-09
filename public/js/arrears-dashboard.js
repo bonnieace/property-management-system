@@ -23,40 +23,10 @@ const arrearsDashboard = {
     try {
       console.log('📊 [ArrearsDashboard.loadArrears] Fetching arrears from API...');
       
-      // Get all contracts first
-      const contractsResponse = await fetch(`${API_BASE}/api/admin/contracts?limit=1000`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${state.token}` }
-      });
-
-      if (contractsResponse.ok) {
-        const result = await contractsResponse.json();
-        this.allContracts = result.data || [];
-      }
-
-      // Get arrears for each contract
-      const arrearsPromises = this.allContracts.map(contract =>
-        fetch(`${API_BASE}/api/admin/tenants/${contract.tenant_id}/arrears`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${state.token}` }
-        })
-          .then(res => res.ok ? res.json() : null)
-          .catch(err => {
-            console.error('Error loading arrears for tenant:', err);
-            return null;
-          })
-      );
-
-      const arrearsResults = await Promise.all(arrearsPromises);
-      
-      this.arrearsList = this.allContracts.map((contract, idx) => {
-        const arrearsData = arrearsResults[idx]?.data;
-        return {
-          ...contract,
-          total_outstanding_kes: arrearsData?.total_outstanding_kes || 0,
-          records: arrearsData?.records || []
-        };
-      }).filter(item => item.total_outstanding_kes > 0);
+      const response = await fetch(`${API_BASE}/api/admin/arrears`);
+      if (!response.ok) throw new Error('Arrears could not be loaded');
+      this.arrearsList = (await response.json()).data;
+      this.allContracts = this.arrearsList;
 
       this.renderArrearsDashboard();
     } catch (err) {
@@ -77,7 +47,7 @@ const arrearsDashboard = {
 
     // Calculate summary stats
     const totalOutstanding = this.arrearsList.reduce((sum, item) => sum + Number(item.total_outstanding_kes), 0);
-    const tenantsWithArrears = this.arrearsList.length;
+    const tenantsWithArrears = new Set(this.arrearsList.map(c=>c.tenant_id)).size;
 
     // Render summary cards
     const summaryHtml = `
@@ -117,8 +87,8 @@ const arrearsDashboard = {
               const monthsBehind = Math.ceil(arrears.total_outstanding_kes / arrears.monthly_rent_kes);
               return `
                 <tr style="border-bottom: 1px solid var(--border);">
-                  <td style="padding: 12px;"><strong>${arrears.tenant_name}</strong></td>
-                  <td style="padding: 12px;">${arrears.unit_code}</td>
+                  <td style="padding: 12px;"><strong>${escapeHtml(arrears.tenant_name)}</strong></td>
+                  <td style="padding: 12px;">${escapeHtml(arrears.unit_code)}</td>
                   <td style="padding: 12px; text-align: right;">KES ${Number(arrears.monthly_rent_kes).toLocaleString()}</td>
                   <td style="padding: 12px; text-align: right; color: var(--rust); font-weight: 600;">KES ${Number(arrears.total_outstanding_kes).toLocaleString()}</td>
                   <td style="padding: 12px; text-align: center;">
@@ -127,10 +97,10 @@ const arrearsDashboard = {
                     </span>
                   </td>
                   <td style="padding: 12px; text-align: center;">
-                    <button onclick="arrearsDashboard.viewTenantArrears(${arrears.id})" class="btn-icon" title="View Details">
+                    <button onclick="arrearsDashboard.viewTenantArrears('${arrears.id}')" class="btn-icon" title="View Details">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
-                    <button onclick="arrearsDashboard.recordPaymentForTenant(${arrears.id})" class="btn-icon" title="Record Payment">
+                    <button onclick="arrearsDashboard.recordPaymentForTenant('${arrears.id}')" class="btn-icon" title="Record Payment">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                     </button>
                   </td>
@@ -155,8 +125,8 @@ const arrearsDashboard = {
     // Switch to payments page and filter by contract
     if (paymentsManager) {
       await paymentsManager.loadPayments(contractId);
-      showPage('payments');
-      localStorage.setItem('adminLastPage', 'payments');
+      showPage('rentalPayments');
+      localStorage.setItem('adminLastPage', 'rentalPayments');
     }
   },
 
@@ -169,12 +139,14 @@ const arrearsDashboard = {
 
     // Open payment recording modal
     if (paymentsManager) {
+      await paymentsManager.loadContracts();
+      paymentsManager.openRecordPaymentModal();
       paymentsManager.currentPaymentId = null;
       const modal = document.getElementById('recordPaymentModal') || paymentsManager.createRecordPaymentModal();
       const form = document.getElementById('recordPaymentForm');
       if (form) {
         document.getElementById('recordPaymentContractInput').value = contractId;
-        document.getElementById('recordPaymentFormTitle').textContent = `Record Payment - ${contract.tenant_name}`;
+        document.getElementById('recordPaymentFormTitle').textContent = `Record Payment - ${escapeHtml(contract.tenant_name)}`;
         document.getElementById('recordPaymentAmountInput').value = '';
       }
       modal.classList.add('open');

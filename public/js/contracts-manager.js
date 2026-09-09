@@ -14,12 +14,12 @@ const contractsManager = {
    * Initialize contracts manager
    */
   async init() {
-    console.log('📋 [ContractsManager.init] Initializing contracts manager');
+
     await this.loadTenants();
     await this.loadUnits();
     await this.loadContracts();
     this.attachEventListeners();
-    console.log('📋 [ContractsManager.init] Initialization complete');
+
   },
 
   /**
@@ -65,7 +65,7 @@ const contractsManager = {
    */
   async loadContracts(tenantId = null) {
     try {
-      console.log('📋 [ContractsManager.loadContracts] Fetching contracts from API...');
+
       this.filterTenantId = tenantId;
       
       let url = `${API_BASE}/api/admin/contracts`;
@@ -110,8 +110,8 @@ const contractsManager = {
     tbody.innerHTML = this.contracts.map(contract => `
       <tr>
         <td>${contract.id || '—'}</td>
-        <td><strong>${contract.tenant_name || 'N/A'}</strong></td>
-        <td>${contract.unit_code || '—'}</td>
+        <td><strong>${escapeHtml(contract.tenant_name || 'N/A')}</strong></td>
+        <td>${escapeHtml(contract.unit_code || '—')}</td>
         <td>KES ${Number(contract.monthly_rent_kes || 0).toLocaleString()}</td>
         <td>${contract.start_date ? new Date(contract.start_date).toLocaleDateString() : '—'}</td>
         <td>
@@ -123,7 +123,7 @@ const contractsManager = {
             ${(contract.status || 'unknown').charAt(0).toUpperCase() + (contract.status || 'unknown').slice(1)}
           </span>
         </td>
-        <td>${contract.notes ? contract.notes.substring(0, 30) + '...' : '—'}</td>
+        <td>${contract.notes ? escapeHtml(contract.notes.substring(0, 30)) + '...' : '—'}</td>
         <td>
           <div style="display: flex; gap: 4px;">
             <button onclick="contractsManager.openEditModal('${contract.id}')" class="btn-icon" title="Edit">
@@ -170,7 +170,7 @@ const contractsManager = {
     
     const form = document.getElementById('contractForm');
     if (form) {
-      document.getElementById('contractFormTitle').textContent = `Edit Contract - ${contract.tenant_name}`;
+      document.getElementById('contractFormTitle').textContent = `Edit Contract - ${escapeHtml(contract.tenant_name)}`;
       document.getElementById('contractTenantInput').value = contract.tenant_id;
       document.getElementById('contractUnitInput').value = contract.unit_id;
       document.getElementById('contractStartDateInput').value = contract.start_date;
@@ -242,7 +242,7 @@ const contractsManager = {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to save contract');
+        throw new Error(error.error || error.message || 'Failed to save contract');
       }
 
       alert(this.currentContractId ? 'Contract updated successfully' : 'Contract created successfully');
@@ -297,7 +297,7 @@ const contractsManager = {
 
       // Update modal title with contract info
       document.getElementById('contractPaymentsSubtitle').textContent = 
-        `Tenant: ${contract.tenant_name || 'N/A'} • Unit: ${contract.unit_id || 'N/A'} • Rent: KES ${contract.monthly_rent_kes || 0}`;
+        `Tenant: ${escapeHtml(contract.tenant_name || 'N/A')} • Unit: ${contract.unit_id || 'N/A'} • Rent: KES ${contract.monthly_rent_kes || 0}`;
 
       // Load and display payments in modal
       if (paymentsManager) {
@@ -315,7 +315,7 @@ const contractsManager = {
    */
   createFormModal() {
     const tenantOptions = this.tenants.map(t => `
-      <option value="${t.id}">${t.tenant_name} (${t.tenant_phone})</option>
+      <option value="${t.id}">${escapeHtml(t.tenant_name)} (${escapeHtml(t.tenant_phone)})</option>
     `).join('');
 
     const unitOptions = this.units.map(u => `

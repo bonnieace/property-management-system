@@ -1,1872 +1,406 @@
-/**
- * ADMIN ROUTES
- * Managing pricing rules, blocked dates, bookings, waitlist, and audit logs
- */
-
 const express = require('express');
-const router = express.Router();
-const db = require('./db');
 const bcrypt = require('bcrypt');
-const { createTenant, getTenantByPhone, getTenantById, updateTenant, listTenants } = require('./tenantService');
-const { createContract, getContractById, listContracts, updateContract, getActiveTenantContract, getTenantUnitContract, endContract } = require('./contractService');
-const { recordPayment, getPaymentById, getMonthlyPayment, listPayments, getTenantArrears, updatePaymentStatusToLate, getContractPaymentSummary } = require('./paymentService');
-const {
-  adminAuthMiddleware,
-  propertyAccessMiddleware,
-  fullAccessMiddleware,
-  permissionMiddleware,
-  authenticateUser,
-  generateToken,
-  getAdminWithProperties
-} = require('./adminAuth');
-
-// ─────────────────────────────────────────────────────
-// AUTHENTICATION ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * POST /admin/login
- * Admin user login with username/password
- */
-router.post('/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ ok: false, error: 'Username and password required' });
-    }
-
-    console.log(`🔐 [Login] Attempting login for username: ${username}`);
-    
-    // Debug: Check if user exists and what hash is stored
-    const admin = await db('admin_users').where('username', username).first();
-    if (!admin) {
-      console.log(`🔐 [Login] User not found: ${username}`);
-      return res.status(401).json({ ok: false, error: 'Invalid username or password' });
-    }
-    
-    console.log(`🔐 [Login] User found: ${admin.username}, status: ${admin.status}`);
-    console.log(`🔐 [Login] Password hash in DB: ${admin.password_hash.substring(0, 40)}...`);
-    console.log(`🔐 [Login] Password provided: ${password}`);
-    
-    const result = await authenticateUser(username, password);
-
-    if (!result.ok) {
-      console.log(`🔐 [Login] Authentication failed for ${username}: ${result.error}`);
-      return res.status(401).json(result);
-    }
-
-    console.log(`🔐 [Login] Authentication successful for ${username}`);
-    res.json(result);
-  } catch (err) {
-    console.error('[Admin Login]', err);
-    res.status(500).json({ ok: false, error: 'Authentication failed' });
-  }
-});
-
-/**
- * POST /admin/verify
- * Verify JWT token validity
- */
-router.post('/verify', adminAuthMiddleware, (req, res) => {
-  res.json({
-    ok: true,
-    user: req.admin
+const db = require('./db');
+const h = require('./http');
+const auth = require('./adminAuth');
+const a = require('./propertyScope');
+const workspace = require('./workspaceRoutes');
+const bookings = require('./bookingService');
+const payments = require('./paymentService');
+const router = express.Router();
+const ok = (res, data) => res.json({ ok: true, data });
+router.post('/login', h.rateLimit('login-ip', 50), h.rateLimit('login-user', 10, 900000, req => String(req.body.username || '').toLowerCase()), h.route(async (req, res) => {
+  const username = h.required(50).parse(req.body.username);
+  const password = h.z.string().min(1).max(72).parse(req.body.password);
+  res.json({ ok: true, user: await auth.authenticateUser(username, password, res) });
+}));
+router.post('/logout', h.route(auth.logout));
+router.use(workspace.router);
+router.use(auth.adminAuthMiddleware);
+router.post('/verify', (req, res) => res.json({ ok: true, user: req.admin }));
+router.post('/account/password', h.route(async (req, res) => {
+  const current = h.z.string().min(1).max(72).parse(req.body.current_password);
+  const password = h.password.parse(req.body.password);
+  const account = await db('admin_users').where('id', req.admin.id).first();
+  if (!await bcrypt.compare(current, account.password_hash)) throw new h.HttpError(400, 'Current password is incorrect');
+  await db.transaction(async trx => {
+    await trx('admin_users').where('id', account.id).update({ password_hash: await bcrypt.hash(password, 12) });
+    await trx('admin_sessions').where('admin_id', account.id).delete();
   });
-});
-
-// ─────────────────────────────────────────────────────
-// PROPERTIES ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * GET /admin/properties
- * List all properties (optionally filtered by status)
- */
-router.get('/properties', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { status } = req.query;
-
-    let query = db('properties');
-
-    if (status) {
-      query.where('status', status);
+  res.json({ ok: true, user: await auth.createSession(account.id, res) });
+}));
+router.get('/dashboard', h.route(async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 7) + '-01';
+  const monthEnd = new Date(Date.UTC(Number(today.slice(0,4)), Number(today.slice(5,7)), 1)).toISOString().slice(0,10);
+  const bnb = () => a.scope(db('bookings'), req).where({ status: 'confirmed', booking_type: 'bnb' });
+  const [summary, rent, contracts, recent, upcoming, chart, units, stays, leases] = await Promise.all([
+    bnb().count('* as count').sum('total_amount_kes as value').first(),
+    a.unitScope(db('rental_payments'), req).sum('amount_paid_kes as value').first(),
+    a.scope(db('rental_contracts'), req).where('status','active').count('* as count').first(),
+    bnb().orderBy('created_at','desc').limit(5),
+    bnb().where('checkin_date','>=',today).orderBy('checkin_date').limit(5),
+    bnb().where('created_at','>=',`${today.slice(0,4)}-01-01`).select('created_at','checkin_date','total_amount_kes','booking_type'),
+    a.scope(db('units'), req).select('id','name','type'),
+    a.scope(db('bookings'), req).where('status','confirmed').where('checkin_date','<',monthEnd).where('checkout_date','>',monthStart).select('unit_id','checkin_date as start','checkout_date as end'),
+    a.scope(db('rental_contracts'), req).whereIn('status',['active','suspended']).where('start_date','<',monthEnd).where(q=>q.whereNull('end_date').orWhere('end_date','>',monthStart)).select('unit_id','start_date as start','end_date as end')
+  ]);
+  const days = (Date.parse(monthEnd)-Date.parse(monthStart))/86400000;
+  const occupancy = units.map(unit => {
+    const occupied = new Set();
+    for (const stay of [...stays,...leases].filter(s=>s.unit_id===unit.id)) {
+      const start = Math.max(Date.parse(stay.start),Date.parse(monthStart));
+      const end = Math.min(Date.parse(stay.end || monthEnd),Date.parse(monthEnd));
+      for(let day=start;day<end;day+=86400000) occupied.add(day);
     }
-
-    const properties = await query.orderBy('created_at', 'desc');
-
-    res.json({
-      ok: true,
-      data: properties
+    return {...unit, percentage:Math.round(occupied.size/days*100)};
+  });
+  ok(res, { bookings:Number(summary.count), bookingValue:Number(summary.value||0), activeLeases:Number(contracts.count), rentReceived:Number(rent.value||0), recent, upcoming, chart, occupancy });
+}));
+router.get('/properties', h.route(async (req, res) => {
+  const query = a.scope(db('properties'), req);
+  if (req.query.status) query.where('status', h.z.enum(['active', 'inactive']).parse(req.query.status));
+  ok(res, await query.orderBy('name'));
+}));
+router.put('/properties/:id', h.route(async (req, res) => {
+  const p = await a.property(req, req.params.id, true);
+  const updates = h.patchSchema(workspace.propertySchema.omit({ property_id: true }).extend({
+    description: h.text(3000), country: h.text(50), contact_person: h.text(100), email: h.z.union([h.email, h.z.literal('')]), status: h.z.enum(['active', 'inactive'])
+  })).parse(req.body);
+  if (updates.status === 'inactive' && req.admin.role !== 'full_admin') throw new h.HttpError(403, 'Contact the platform administrator to deactivate a property');
+  const [data] = await db('properties').where('id', p.id).update({ ...updates, updated_at: db.fn.now() }).returning('*');
+  await a.activity(req, 'property.updated', p.property_id); ok(res, data);
+}));
+const unitSchema = h.z.object({
+  unit_id: h.z.string().regex(/^[a-z0-9][a-z0-9-]{1,49}$/), property_id: h.slug,
+  type: h.z.enum(['bnb', 'bedsit', '1bed', '2bed']), name: h.required(100), description: h.text(3000).default(''),
+  bedrooms: h.integer(0, 30), bathrooms: h.integer(0, 30), max_guests: h.integer(1, 100).default(4),
+  base_price_kes: h.integer(1), extra_guest_charge: h.integer().default(800), water_deposit_kes: h.integer().default(0),
+  min_night_stay: h.integer(1, 366).default(1), status: h.z.enum(['active', 'inactive', 'maintenance']).default('active')
+});
+router.get('/units', h.route(async (req, res) => {
+  const query = a.scope(db('units'), req);
+  for (const key of ['status', 'type', 'id']) if (req.query[key]) query.where(key, req.query[key]);
+  const data = await query.orderBy('name');
+  const images = await db('unit_images').whereIn('unit_id', data.map(u => u.id)).orderBy('display_order');
+  ok(res, data.map(u => ({ ...u, images: images.filter(i => i.unit_id === u.id) })));
+}));
+router.post('/units', h.route(async (req, res) => {
+  const input = unitSchema.parse(req.body); await a.property(req, input.property_id);
+  const [data] = await db('units').insert(input).returning('*');
+  await a.activity(req, 'unit.created', data.property_id, data.id); res.status(201); ok(res, data);
+}));
+router.put('/units/:id', h.route(async (req, res) => {
+  const unit = await a.unit(req, req.params.id);
+  const input = h.patchSchema(unitSchema.omit({ unit_id: true })).parse(req.body);
+  if (input.property_id && input.property_id !== unit.property_id) throw new h.HttpError(400, 'A unit cannot be moved between properties');
+  const [data] = await db('units').where('id', unit.id).update({ ...input, updated_at: db.fn.now() }).returning('*');
+  ok(res, data);
+}));
+router.put('/units/:id/images', h.route(async (req, res) => {
+  const unit = await a.unit(req, req.params.id);
+  const images = h.z.array(h.z.object({ image_url: h.url.refine(v => !!v), alt_text: h.text(255).default('') })).max(20).parse(req.body.images);
+  await db.transaction(async trx => {
+    await trx('units').where('id', unit.id).forUpdate().first();
+    await trx('unit_images').where('unit_id', unit.id).delete();
+    if (images.length) await trx('unit_images').insert(images.map((i, index) => ({ ...i, unit_id: unit.id, display_order: index, is_primary: index === 0 })));
+  });
+  ok(res, await db('unit_images').where('unit_id', unit.id).orderBy('display_order'));
+}));
+for (const [path, table] of [['pricing-rules', 'pricing_rules'], ['blocked-dates', 'availability_blocks']]) {
+  router.get(`/${path}`, h.route(async (req, res) => {
+    const query = a.unitScope(db(table), req);
+    if (req.query.unitId) query.where('unit_id', (await a.unit(req, req.query.unitId)).id);
+    if (req.query.startDate) query.where('end_date', '>', h.date.parse(req.query.startDate));
+    if (req.query.endDate) query.where('start_date', '<', h.date.parse(req.query.endDate));
+    if (path === 'pricing-rules' && req.query.isActive) query.where('is_active', req.query.isActive === 'true');
+    ok(res, await query.orderBy('start_date'));
+  }));
+  router.post(`/${path}`, h.route(async (req, res) => {
+    const unit = await a.unit(req, req.body.unitId);
+    const start_date = h.date.parse(req.body.startDate), end_date = h.date.parse(req.body.endDate);
+    h.dateRange(start_date, end_date);
+    const input = { unit_id: unit.id, start_date, end_date, reason: h.text(200).parse(req.body.reason || '') };
+    if (path === 'pricing-rules') input.price_per_night_kes = h.integer(1).parse(req.body.pricePerNightKes);
+    const data = await db.transaction(async trx => {
+      await trx('units').where('id', unit.id).forUpdate().first();
+      if (path === 'blocked-dates') await bookings.assertAvailable(trx, unit, start_date, end_date);
+      return (await trx(table).insert(input).returning('*'))[0];
     });
-  } catch (err) {
-    console.error('[GET Properties]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch properties' });
+    res.status(201).json({ ok: true, id: data.id, data });
+  }));
+  router.delete(`/${path}/:id`, h.route(async (req, res) => {
+    await a.record(req, table, req.params.id); await db(table).where('id', req.params.id).delete(); res.json({ ok: true });
+  }));
+}
+router.put('/pricing-rules/:id', h.route(async (req, res) => {
+  const r = await a.record(req, 'pricing_rules', req.params.id);
+  const input = h.z.object({ pricePerNightKes: h.integer(1), reason: h.text(200), isActive: h.z.boolean() }).partial().parse(req.body);
+  const update = { updated_at: db.fn.now() };
+  if (input.pricePerNightKes !== undefined) update.price_per_night_kes = input.pricePerNightKes;
+  if (input.isActive !== undefined) update.is_active = input.isActive;
+  if (input.reason !== undefined) update.reason = input.reason;
+  await db('pricing_rules').where('id', r.id).update(update); res.json({ ok: true });
+}));
+router.get('/bookings', h.route(async (req, res) => {
+  const query = a.scope(db('bookings'), req);
+  const q = req.query;
+  if (q.status) query.where('status', h.z.enum(['pending', 'confirmed', 'failed', 'expired', 'cancelled']).parse(q.status));
+  if (q.unitId) query.where('unit_id', (await a.unit(req, q.unitId)).id);
+  if (q.bookingType) query.where('booking_type', h.z.enum(['bnb', 'rental']).parse(q.bookingType));
+  if (q.phone) query.where('guest_phone', 'like', `%${h.text(20).parse(q.phone)}%`);
+  if (q.startDate || q.dateFrom) query.where('checkout_date', '>', h.date.parse(q.startDate || q.dateFrom));
+  if (q.endDate || q.dateTo) query.where('checkin_date', '<', h.date.parse(q.endDate || q.dateTo));
+  const { limit, offset } = h.page(q);
+  const total = Number((await query.clone().count('id as count').first()).count);
+  const data = await query.orderBy('checkin_date', 'desc').limit(limit).offset(offset);
+  res.json({ ok: true, data: data.map(b => ({ ...b, booking_ref: b.reference, total_kes: b.total_amount_kes })), total, count: data.length, limit, offset });
+}));
+router.get('/bookings/:id', h.route(async (req, res) => {
+  const b = await a.record(req, 'bookings', h.z.uuid().parse(req.params.id));
+  const auditTrail = await db('audit_log').where('booking_id', b.id).orderBy('created_at', 'desc');
+  ok(res, { ...b, booking_ref: b.reference, total_kes: b.total_amount_kes, auditTrail });
+}));
+router.get('/bookings/:id/audit', h.route(async (req, res) => {
+  const b = await a.record(req, 'bookings', h.z.uuid().parse(req.params.id));
+  ok(res, await db('audit_log').where('booking_id', b.id).orderBy('created_at', 'desc'));
+}));
+router.post('/bookings', h.route(async (req, res) => {
+  const unit = await a.unit(req, req.body.unitId || req.body.unit_id);
+  if (req.body.property_id && req.body.property_id !== unit.property_id) throw new h.HttpError(400, 'Unit and property do not match');
+  const data = await db.transaction(async trx => {
+    const b = await bookings.createBooking(trx, unit, req.body);
+    await a.activity(req, 'booking.created', unit.property_id, b.id, trx); return b;
+  });
+  res.status(201).json({ ok: true, id: data.id, data });
+}));
+router.put('/bookings/:id', h.route(async (req, res) => {
+  const b = await a.record(req, 'bookings', h.z.uuid().parse(req.params.id));
+  const input = h.z.object({ status: h.z.enum(['confirmed', 'cancelled']), notes: h.text(3000), adminNotes: h.text(3000), guest_name: h.required(100), guest_phone: h.text(20), guest_email: h.z.union([h.email, h.z.literal('')]), checkin_date: h.date, checkout_date: h.date, total_guests: h.integer(1, 100) }).partial().parse(req.body);
+  if (input.adminNotes !== undefined) { input.admin_notes = input.adminNotes; delete input.adminNotes; }
+  if (input.guest_phone) input.guest_phone = h.phone(input.guest_phone);
+  const data = await db.transaction(async trx => {
+    const unit = await trx('units').where('id', b.unit_id).forUpdate().first();
+    const current = await trx('bookings').where('id', b.id).forUpdate().first();
+    if (input.status === 'confirmed' && current.status !== 'confirmed' && current.checkout_request_id) throw new h.HttpError(409, 'M-Pesa bookings are confirmed by payment verification');
+    const changedDates = input.checkin_date !== undefined && input.checkin_date !== current.checkin_date || input.checkout_date !== undefined && input.checkout_date !== current.checkout_date || input.total_guests !== undefined && input.total_guests !== current.total_guests;
+    const guests = input.total_guests ?? current.total_guests;
+    if (guests > unit.max_guests) throw new h.HttpError(400, 'Guest count exceeds unit capacity');
+    const nights = h.dateRange(input.checkin_date || current.checkin_date, input.checkout_date || current.checkout_date);
+    if (nights < unit.min_night_stay) throw new h.HttpError(400, 'This stay is shorter than the unit minimum');
+    if (changedDates && current.checkout_request_id) throw new h.HttpError(409, 'Paid reservation dates require a separate adjustment; do not overwrite the payment record');
+    if ((input.status || current.status) === 'confirmed') await bookings.assertAvailable(trx, unit, input.checkin_date || current.checkin_date, input.checkout_date || current.checkout_date, b.id);
+    if (changedDates) {
+      const quote = await require('./priceCalculator').calculatePrice(unit.id, input.checkin_date || current.checkin_date, input.checkout_date || current.checkout_date, input.total_guests || current.total_guests, trx);
+      input.nights = quote.nights; input.total_amount_kes = quote.finalPrice; input.pricing_breakdown = JSON.stringify(quote.breakdown);
+    }
+    const [saved] = await trx('bookings').where('id', b.id).update({ ...input, updated_at: trx.fn.now() }).returning('*');
+    await a.activity(req, 'booking.updated', b.property_id, b.id, trx); return saved;
+  });
+  ok(res, data);
+}));
+router.delete('/bookings/:id', h.route(async (req, res) => {
+  const b = await a.record(req, 'bookings', h.z.uuid().parse(req.params.id));
+  await db.transaction(async trx => {
+    await trx('units').where('id', b.unit_id).forUpdate().first();
+    await trx('bookings').where('id', b.id).update({ status: 'cancelled', updated_at: trx.fn.now() });
+    await a.activity(req, 'booking.cancelled', b.property_id, b.id, trx);
+  });
+  res.json({ ok: true, message: 'Booking cancelled. Any refund must be handled separately.' });
+}));
+router.get('/waitlist', h.route(async (req, res) => {
+  const query = a.unitScope(db('waitlist'), req);
+  if (req.query.unitId) query.where('unit_id', (await a.unit(req, req.query.unitId)).id);
+  if (req.query.status) query.where('notified', req.query.status === 'notified');
+  const { limit, offset } = h.page(req.query);
+  const data = await query.orderBy('created_at', 'desc').limit(limit).offset(offset);
+  res.json({ ok: true, data, count: data.length });
+}));
+router.post('/waitlist/:id/notify', h.route(async (req, res) => {
+  await a.record(req, 'waitlist', req.params.id);
+  throw new h.HttpError(503, 'Automatic notifications are not configured. Contact the guest using their listed number.');
+}));
+router.get('/audit-log', h.route(async (req, res) => {
+  const query = db('audit_log').whereIn('booking_id', a.scope(db('bookings').select('id'), req));
+  if (req.query.bookingId) query.where('booking_id', h.z.uuid().parse(req.query.bookingId));
+  if (req.query.eventType) query.where('transaction_type', h.text(30).parse(req.query.eventType));
+  const { limit, offset } = h.page(req.query);
+  const data = await query.orderBy('created_at', 'desc').limit(limit).offset(offset);
+  ok(res, data.map(r => ({ ...r, event_type: r.transaction_type, event_data: r.response_data })));
+}));
+router.get('/activity', h.route(async (req, res) => {
+  const { limit, offset } = h.page(req.query);
+  ok(res, await a.scope(db('property_activity'), req).orderBy('created_at', 'desc').limit(limit).offset(offset));
+}));
+const tenantSchema = h.z.object({ tenant_name: h.required(100), tenant_phone: h.text(20).transform(h.phone), tenant_email: h.z.union([h.email, h.z.literal('')]).nullable().default(null), id_number: h.text(50).nullable().default(null), next_of_kin_phone: h.text(20).nullable().default(null), next_of_kin_name: h.text(100).nullable().default(null), notes: h.text(3000).nullable().default(null) });
+router.get('/tenants', h.route(async (req, res) => {
+  const { limit, offset } = h.page(req.query);
+  ok(res, await a.scope(db('tenants'), req).orderBy('tenant_name').limit(limit).offset(offset));
+}));
+router.post('/tenants', h.route(async (req, res) => {
+  const p = await a.property(req, req.body.property_id || a.requestedProperty(req));
+  const input = tenantSchema.parse(req.body);
+  const [data] = await db('tenants').insert({ ...input, property_id: p.property_id }).returning('*');
+  res.status(201); ok(res, data);
+}));
+router.get('/tenants/:phone', h.route(async (req, res) => {
+  const data = await a.scope(db('tenants'), req).where('tenant_phone', h.phone(req.params.phone)).first();
+  if (!data) throw new h.HttpError(404, 'Tenant not found'); ok(res, data);
+}));
+router.put('/tenants/:id', h.route(async (req, res) => {
+  const tenant = await a.record(req, 'tenants', h.integer(1).parse(req.params.id));
+  const input = h.patchSchema(tenantSchema).parse(req.body);
+  const [data] = await db('tenants').where('id', tenant.id).update({ ...input, updated_at: db.fn.now() }).returning('*'); ok(res, data);
+}));
+// Tenant records with financial/lease history are retained, not deleted.
+router.delete('/tenants/:id', h.route(async (req, res) => {
+  const tenant = await a.record(req, 'tenants', h.integer(1).parse(req.params.id));
+  if (await db('rental_contracts').where('tenant_id', tenant.id).first()) throw new h.HttpError(409, 'Tenants with contracts must be retained for payment history');
+  await db('tenants').where('id', tenant.id).delete(); res.json({ ok: true });
+}));
+const contractSchema = h.z.object({ tenant_id: h.integer(1), unit_id: h.integer(1), property_id: h.slug, start_date: h.date, end_date: h.date.nullable().optional(), monthly_rent_kes: h.integer(1), payment_frequency: h.z.literal('monthly').default('monthly'), security_deposit_kes: h.integer().default(0), utilities_deposit_kes: h.integer().default(0), notes: h.text(3000).default('') });
+const contractQuery = req => a.scope(db('rental_contracts as c').join('tenants as t', 'c.tenant_id', 't.id').join('units as u', 'c.unit_id', 'u.id').select('c.*', 't.tenant_name', 't.tenant_phone', 'u.unit_id as unit_code', 'c.contract_notes as notes'), req, 'c.property_id');
+router.post('/contracts', h.route(async (req, res) => {
+  const input = contractSchema.parse(req.body);
+  const unit = await a.unit(req, input.unit_id);
+  const tenant = await a.record(req, 'tenants', input.tenant_id);
+  if (unit.property_id !== input.property_id || tenant.property_id !== unit.property_id) throw new h.HttpError(400, 'Tenant, unit and contract must belong to the same property');
+  if (unit.type === 'bnb') throw new h.HttpError(400, 'Choose a rental unit');
+  if (input.end_date) h.dateRange(input.start_date, input.end_date, 36500);
+  const { notes, ...fields } = input;
+  const data = await db.transaction(async trx => {
+    await trx('units').where('id', unit.id).forUpdate().first();
+    const conflict = await trx('rental_contracts').where('unit_id', unit.id).whereIn('status', ['active', 'suspended']).where('start_date', '<', input.end_date || '9999-12-31').where(q => q.whereNull('end_date').orWhere('end_date', '>', input.start_date)).first();
+    if (conflict) throw new h.HttpError(409, 'This unit already has an overlapping lease');
+    const booked = await trx('bookings').where('unit_id', unit.id).whereIn('status', ['confirmed', 'pending']).where('checkout_date', '>', input.start_date).where('checkin_date', '<', input.end_date || '9999-12-31').first();
+    if (booked) throw new h.HttpError(409, 'This unit has a reservation during that lease');
+    const [data] = await trx('rental_contracts').insert({ ...fields, contract_notes: notes }).returning('*');
+    await a.activity(req, 'contract.created', unit.property_id, data.id, trx); return data;
+  });
+  res.status(201); ok(res, data);
+}));
+router.get('/contracts', h.route(async (req, res) => {
+  const query = contractQuery(req);
+  for (const key of ['tenant_id', 'unit_id', 'status']) if (req.query[key]) query.where(`c.${key}`, req.query[key]);
+  const { limit, offset } = h.page(req.query); ok(res, await query.orderBy('c.start_date', 'desc').limit(limit).offset(offset));
+}));
+router.get('/contracts/tenant/:tenantId/active', h.route(async (req, res) => {
+  const tenant = await a.record(req, 'tenants', h.integer(1).parse(req.params.tenantId));
+  ok(res, await contractQuery(req).where('c.tenant_id', tenant.id).where('c.status', 'active').first() || null);
+}));
+router.get('/contracts/:id', h.route(async (req, res) => {
+  const c = await a.record(req, 'rental_contracts', h.z.uuid().parse(req.params.id));
+  ok(res, await contractQuery(req).where('c.id', c.id).first());
+}));
+router.put('/contracts/:id', h.route(async (req, res) => {
+  const c = await a.record(req, 'rental_contracts', h.z.uuid().parse(req.params.id));
+  // Terms/relationships are fixed once a lease is created; end it before moving a tenant.
+  const input = h.patchSchema(contractSchema).parse(req.body);
+  for (const key of ['tenant_id', 'unit_id', 'property_id', 'start_date', 'end_date', 'monthly_rent_kes', 'security_deposit_kes', 'utilities_deposit_kes']) {
+    if (input[key] !== undefined && (input[key] || null) !== (c[key] || null)) throw new h.HttpError(409, 'End this lease and create a new one to change its tenant, unit, dates or financial terms');
   }
-});
-
-/**
- * POST /admin/properties
- * Create a new property
- */
-router.post('/properties', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { property_id, name, description, address, city, country, contact_person, contact_phone, email } = req.body;
-
-    // Validate required fields
-    if (!property_id || !name) {
-      return res.status(400).json({ ok: false, error: 'property_id and name are required' });
-    }
-
-    // Check if property_id already exists
-    const existing = await db('properties').where('property_id', property_id).first();
-    if (existing) {
-      return res.status(400).json({ ok: false, error: 'Property ID already exists' });
-    }
-
-    const newProperty = {
-      property_id,
-      name,
-      description: description || null,
-      address: address || null,
-      city: city || null,
-      country: country || 'Kenya',
-      contact_person: contact_person || null,
-      contact_phone: contact_phone || null,
-      email: email || null,
-      status: 'active'
-    };
-
-    const result = await db('properties').insert(newProperty).returning('id');
-    const id = Array.isArray(result) ? result[0].id : result.id;
-
-    const createdProperty = await db('properties').where('id', id).first();
-
-    res.status(201).json({
-      ok: true,
-      data: createdProperty
-    });
-  } catch (err) {
-    console.error('[POST Properties]', err);
-    res.status(500).json({ ok: false, error: 'Failed to create property' });
-  }
-});
-
-/**
- * PUT /admin/properties/:id
- * Update a property
- */
-router.put('/properties/:id', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, description, address, city, country, contact_person, contact_phone, email, status } = req.body;
-
-    // Build update object with only provided fields
-    const updates = {};
-    if (name !== undefined) updates.name = name;
-    if (description !== undefined) updates.description = description;
-    if (address !== undefined) updates.address = address;
-    if (city !== undefined) updates.city = city;
-    if (country !== undefined) updates.country = country;
-    if (contact_person !== undefined) updates.contact_person = contact_person;
-    if (contact_phone !== undefined) updates.contact_phone = contact_phone;
-    if (email !== undefined) updates.email = email;
-    if (status !== undefined) updates.status = status;
-
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ ok: false, error: 'No fields to update' });
-    }
-
-    await db('properties').where('id', id).update(updates);
-
-    const updatedProperty = await db('properties').where('id', id).first();
-
-    if (!updatedProperty) {
-      return res.status(404).json({ ok: false, error: 'Property not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: updatedProperty
-    });
-  } catch (err) {
-    console.error('[PUT Properties]', err);
-    res.status(500).json({ ok: false, error: 'Failed to update property' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// UNITS ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * GET /admin/units
- * List all units (optionally filtered by property_id, status, type)
- */
-router.get('/units', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { property_id, status, type } = req.query;
-
-    let query = db('units');
-
-    if (property_id) query.where('property_id', property_id);
-    if (status) query.where('status', status);
-    if (type) query.where('type', type);
-
-    const units = await query.orderBy('created_at', 'desc');
-
-    res.json({
-      ok: true,
-      data: units
-    });
-  } catch (err) {
-    console.error('[GET Units]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch units' });
-  }
-});
-
-/**
- * POST /admin/units
- * Create a new unit
- */
-router.post('/units', adminAuthMiddleware, async (req, res) => {
-  try {
-    const {
-      unit_id,
-      property_id,
-      type,
-      name,
-      description,
-      bedrooms,
-      bathrooms,
-      max_guests,
-      base_price_kes,
-      extra_guest_charge,
-      water_deposit_kes,
-      min_night_stay
-    } = req.body;
-
-    // Validate required fields
-    if (!unit_id || !property_id || !type || !name || bedrooms === undefined || bathrooms === undefined || !base_price_kes) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Required fields: unit_id, property_id, type, name, bedrooms, bathrooms, base_price_kes'
-      });
-    }
-
-    // Validate type enum
-    const validTypes = ['bnb', 'bedsit', '1bed', '2bed'];
-    if (!validTypes.includes(type)) {
-      return res.status(400).json({
-        ok: false,
-        error: `Type must be one of: ${validTypes.join(', ')}`
-      });
-    }
-
-    // Check if unit_id already exists
-    const existing = await db('units').where('unit_id', unit_id).first();
-    if (existing) {
-      return res.status(400).json({ ok: false, error: 'Unit ID already exists' });
-    }
-
-    // Check if property exists
-    const property = await db('properties').where('property_id', property_id).first();
-    if (!property) {
-      return res.status(400).json({ ok: false, error: 'Property not found' });
-    }
-
-    const newUnit = {
-      unit_id,
-      property_id,
-      type,
-      name,
-      description: description || null,
-      bedrooms,
-      bathrooms,
-      max_guests: max_guests || 4,
-      base_price_kes,
-      extra_guest_charge: extra_guest_charge || 800,
-      water_deposit_kes: water_deposit_kes || 0,
-      min_night_stay: min_night_stay || 1,
-      status: 'active'
-    };
-
-    const result = await db('units').insert(newUnit).returning('id');
-    const id = Array.isArray(result) ? result[0].id : result.id;
-    const createdUnit = await db('units').where('id', id).first();
-
-    res.status(201).json({
-      ok: true,
-      data: createdUnit
-    });
-  } catch (err) {
-    console.error('[POST Units]', err);
-    res.status(500).json({ ok: false, error: 'Failed to create unit' });
-  }
-});
-
-/**
- * PUT /admin/units/:id
- * Update a unit
- */
-router.put('/units/:id', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      name,
-      description,
-      type,
-      bedrooms,
-      bathrooms,
-      max_guests,
-      base_price_kes,
-      extra_guest_charge,
-      water_deposit_kes,
-      min_night_stay,
-      property_id,
-      status
-    } = req.body;
-
-    // Build update object with only provided fields
-    const updates = {};
-    if (name !== undefined) updates.name = name;
-    if (description !== undefined) updates.description = description;
-    if (type !== undefined) {
-      // Validate type enum
-      const validTypes = ['bnb', 'bedsit', '1bed', '2bed'];
-      if (!validTypes.includes(type)) {
-        return res.status(400).json({
-          ok: false,
-          error: `Type must be one of: ${validTypes.join(', ')}`
-        });
-      }
-      updates.type = type;
-    }
-    if (bedrooms !== undefined) updates.bedrooms = bedrooms;
-    if (bathrooms !== undefined) updates.bathrooms = bathrooms;
-    if (max_guests !== undefined) updates.max_guests = max_guests;
-    if (base_price_kes !== undefined) updates.base_price_kes = base_price_kes;
-    if (extra_guest_charge !== undefined) updates.extra_guest_charge = extra_guest_charge;
-    if (water_deposit_kes !== undefined) updates.water_deposit_kes = water_deposit_kes;
-    if (min_night_stay !== undefined) updates.min_night_stay = min_night_stay;
-    if (status !== undefined) updates.status = status;
-    if (property_id !== undefined) {
-      // Validate property exists
-      const property = await db('properties').where('property_id', property_id).first();
-      if (!property) {
-        return res.status(400).json({ ok: false, error: 'Property not found' });
-      }
-      updates.property_id = property_id;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ ok: false, error: 'No fields to update' });
-    }
-
-    await db('units').where('id', id).update(updates);
-    const updatedUnit = await db('units').where('id', id).first();
-
-    if (!updatedUnit) {
-      return res.status(404).json({ ok: false, error: 'Unit not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: updatedUnit
-    });
-  } catch (err) {
-    console.error('[PUT Units]', err);
-    res.status(500).json({ ok: false, error: 'Failed to update unit' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// PRICING RULES ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * GET /admin/pricing-rules
- * List all pricing rules (optionally filtered by unit or date range)
- */
-router.get('/pricing-rules', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { unitId, startDate, endDate, isActive } = req.query;
-
-    let query = db('pricing_rules');
-
-    if (unitId) query.where('unit_id', unitId);
-    if (startDate) query.where('end_date', '>=', startDate);
-    if (endDate) query.where('start_date', '<=', endDate);
-    if (isActive !== undefined) query.where('is_active', isActive === 'true');
-
-    const rules = await query.orderBy('created_at', 'desc');
-
-    res.json({
-      ok: true,
-      data: rules,
-      count: rules.length
-    });
-  } catch (err) {
-    console.error('[Get Pricing Rules]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch pricing rules' });
-  }
-});
-
-/**
- * POST /admin/pricing-rules
- * Create new pricing rule
- */
-router.post('/pricing-rules', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { unitId, startDate, endDate, pricePerNightKes, reason } = req.body;
-
-    if (!unitId || !startDate || !endDate || !pricePerNightKes) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Missing required fields: unitId, startDate, endDate, pricePerNightKes'
-      });
-    }
-
-    // Validate dates
-    if (new Date(startDate) >= new Date(endDate)) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Start date must be before end date'
-      });
-    }
-
-    // Verify unit exists
-    const unit = await db('units').where('unit_id', unitId).first();
-    if (!unit) {
-      return res.status(404).json({ ok: false, error: 'Unit not found' });
-    }
-
-    const now = new Date().toISOString();
-    const rule = {
-      unit_id: unitId,
-      start_date: startDate,
-      end_date: endDate,
-      price_per_night_kes: pricePerNightKes,
-      reason: reason || 'Seasonal pricing',
-      is_active: true,
-      created_by: req.admin.username,
-      created_at: now,
-      updated_at: now
-    };
-
-    const result = await db('pricing_rules').insert(rule).returning('id');
-    const id = Array.isArray(result) ? result[0].id : result.id;
-
-    res.json({
-      ok: true,
-      id,
-      data: { ...rule, id }
-    });
-  } catch (err) {
-    console.error('[Create Pricing Rule]', err);
-    res.status(500).json({ ok: false, error: 'Failed to create pricing rule' });
-  }
-});
-
-/**
- * PUT /admin/pricing-rules/:id
- * Update pricing rule
- */
-router.put('/pricing-rules/:id', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { pricePerNightKes, reason, isActive } = req.body;
-
-    const rule = await db('pricing_rules').where('id', id).first();
-    if (!rule) {
-      return res.status(404).json({ ok: false, error: 'Pricing rule not found' });
-    }
-
-    const updates = {
-      updated_at: new Date().toISOString(),
-      updated_by: req.admin.username
-    };
-
-    if (pricePerNightKes !== undefined) updates.price_per_night_kes = pricePerNightKes;
-    if (reason !== undefined) updates.reason = reason;
-    if (isActive !== undefined) updates.is_active = isActive;
-
-    await db('pricing_rules').where('id', id).update(updates);
-
-    res.json({ ok: true, id });
-  } catch (err) {
-    console.error('[Update Pricing Rule]', err);
-    res.status(500).json({ ok: false, error: 'Failed to update pricing rule' });
-  }
-});
-
-/**
- * DELETE /admin/pricing-rules/:id
- * Delete pricing rule
- */
-router.delete('/pricing-rules/:id', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const rule = await db('pricing_rules').where('id', id).first();
-    if (!rule) {
-      return res.status(404).json({ ok: false, error: 'Pricing rule not found' });
-    }
-
-    await db('pricing_rules').where('id', id).delete();
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('[Delete Pricing Rule]', err);
-    res.status(500).json({ ok: false, error: 'Failed to delete pricing rule' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// BLOCKED DATES ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * GET /admin/blocked-dates
- * List all blocked/maintenance dates
- */
-router.get('/blocked-dates', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { unitId, startDate, endDate } = req.query;
-
-    let query = db('availability_blocks');
-
-    if (unitId) query.where('unit_id', unitId);
-    if (startDate) query.where('end_date', '>=', startDate);
-    if (endDate) query.where('start_date', '<=', endDate);
-
-    const blocks = await query.orderBy('start_date', 'asc');
-
-    res.json({
-      ok: true,
-      data: blocks,
-      count: blocks.length
-    });
-  } catch (err) {
-    console.error('[Get Blocked Dates]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch blocked dates' });
-  }
-});
-
-/**
- * POST /admin/blocked-dates
- * Create blocked date block
- */
-router.post('/blocked-dates', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { unitId, startDate, endDate, reason } = req.body;
-
-    if (!unitId || !startDate || !endDate) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Missing required fields: unitId, startDate, endDate'
-      });
-    }
-
-    // Validate dates
-    if (new Date(startDate) >= new Date(endDate)) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Start date must be before end date'
-      });
-    }
-
-    // Verify unit exists
-    const unit = await db('units').where('unit_id', unitId).first();
-    if (!unit) {
-      return res.status(404).json({ ok: false, error: 'Unit not found' });
-    }
-
-    const now = new Date().toISOString();
-    const block = {
-      unit_id: unitId,
-      start_date: startDate,
-      end_date: endDate,
-      reason: reason || 'Maintenance',
-      blocked_by: req.admin.username,
-      created_at: now
-    };
-
-    const result = await db('availability_blocks').insert(block).returning('id');
-    const id = Array.isArray(result) ? result[0].id : result.id;
-
-    res.json({
-      ok: true,
-      id,
-      data: { ...block, id }
-    });
-  } catch (err) {
-    console.error('[Create Blocked Date]', err);
-    res.status(500).json({ ok: false, error: 'Failed to create blocked date' });
-  }
-});
-
-/**
- * DELETE /admin/blocked-dates/:id
- * Remove blocked date block
- */
-router.delete('/blocked-dates/:id', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const block = await db('availability_blocks').where('id', id).first();
-    if (!block) {
-      return res.status(404).json({ ok: false, error: 'Blocked date not found' });
-    }
-
-    await db('availability_blocks').where('id', id).delete();
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('[Delete Blocked Date]', err);
-    res.status(500).json({ ok: false, error: 'Failed to delete blocked date' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// BOOKINGS MANAGEMENT ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * GET /admin/bookings
- * List all bookings with filters
- * NOTE: Date filters use overlap logic - shows bookings that overlap the date range
- * A booking overlaps if: checkout_date > startDate AND checkin_date < endDate
- */
-router.get('/bookings', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { status, unitId, property, phone, dateFrom, dateTo, startDate, endDate, limit = 50, offset = 0 } = req.query;
-
-    let query = db('bookings').select('*');
-
-    if (status) query.where('status', status);
-    if (unitId) query.where('unit_id', unitId);
-    if (phone) query.where('guest_phone', 'like', `%${phone}%`);
-    
-    // Support both dateFrom/dateTo and startDate/endDate formats
-    const checkinFrom = dateFrom || startDate;
-    const checkinTo = dateTo || endDate;
-    
-    // Debug logging for date filtering
-    if (checkinFrom || checkinTo) {
-      console.log('[Admin Bookings] Fetching bookings with date filter:', { checkinFrom, checkinTo });
-    }
-    
-    // OVERLAP LOGIC: Show bookings that overlap the requested date range
-    // checkout_date >= startDate means booking ends on/after range starts
-    // checkin_date <= endDate means booking starts on/before range ends
-    if (checkinFrom) query.where('checkout_date', '>=', checkinFrom);
-    if (checkinTo) query.where('checkin_date', '<=', checkinTo);
-
-    // Count total records with same filters (without select *)
-    let countQuery = db('bookings');
-    if (status) countQuery.where('status', status);
-    if (unitId) countQuery.where('unit_id', unitId);
-    if (phone) countQuery.where('guest_phone', 'like', `%${phone}%`);
-    if (checkinFrom) countQuery.where('checkout_date', '>=', checkinFrom);
-    if (checkinTo) countQuery.where('checkin_date', '<=', checkinTo);
-    const total = await countQuery.count('id as count').first();
-    const bookings = await query
-      .orderBy('checkin_date', 'asc')
-      .limit(parseInt(limit))
-      .offset(parseInt(offset));
-
-    if (checkinFrom || checkinTo) {
-      console.log('[Admin Bookings] Found', bookings.length, 'bookings, total:', total.count);
-    }
-
-    res.json({
-      ok: true,
-      data: bookings,
-      count: bookings.length,
-      total: total.count,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-  } catch (err) {
-    console.error('[Get Bookings]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch bookings' });
-  }
-});
-
-/**
- * GET /admin/bookings/:id
- * Get booking details with audit trail
- */
-router.get('/bookings/:id', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const booking = await db('bookings').where('id', id).first();
-    if (!booking) {
-      return res.status(404).json({ ok: false, error: 'Booking not found' });
-    }
-
-    const audit = await db('audit_log')
-      .where('booking_id', id)
-      .orderBy('created_at', 'desc');
-
-    res.json({
-      ok: true,
-      data: {
-        ...booking,
-        auditTrail: audit
-      }
-    });
-  } catch (err) {
-    console.error('[Get Booking Detail]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch booking' });
-  }
-});
-
-/**
- * PUT /admin/bookings/:id
- * Update booking (status, notes)
- */
-router.put('/bookings/:id', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, adminNotes } = req.body;
-
-    const booking = await db('bookings').where('id', id).first();
-    if (!booking) {
-      return res.status(404).json({ ok: false, error: 'Booking not found' });
-    }
-
-    const updates = {
-      updated_at: new Date().toISOString()
-    };
-
-    if (status) updates.status = status;
-    if (adminNotes !== undefined) updates.admin_notes = adminNotes;
-
-    await db('bookings').where('id', id).update(updates);
-
-    // Log change
-    await db('audit_log').insert({
-      booking_id: id,
-      event_type: 'admin_update',
-      event_data: JSON.stringify({ changes: updates, admin: req.admin.username }),
-      created_at: new Date().toISOString()
-    });
-
-    res.json({ ok: true, id });
-  } catch (err) {
-    console.error('[Update Booking]', err);
-    res.status(500).json({ ok: false, error: 'Failed to update booking' });
-  }
-});
-
-/**
- * POST /admin/bookings
- * Create a new booking (admin function)
- * Body: { unitId, checkinDate, checkoutDate, guestName, guestPhone, totalKes }
- */
-router.post('/bookings', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { unitId, checkinDate, checkoutDate, guestName, guestPhone, totalKes } = req.body;
-
-    if (!unitId || !checkinDate || !checkoutDate || !guestName || !guestPhone) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Missing required fields: unitId, checkinDate, checkoutDate, guestName, guestPhone'
-      });
-    }
-
-    // Validate dates
-    if (new Date(checkinDate) >= new Date(checkoutDate)) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Check-out date must be after check-in date'
-      });
-    }
-
-    // Verify unit exists
-    const unit = await db('units').where('unit_id', unitId).orWhere('id', parseInt(unitId) || -1).first();
-    if (!unit) {
-      return res.status(404).json({ ok: false, error: 'Unit not found' });
-    }
-
-    // Check availability
-    const { checkAvailability } = require('./availabilityChecker');
-    const availability = await checkAvailability(unit.id, checkinDate, checkoutDate);
-    
-    if (!availability.isAvailable) {
-      return res.status(409).json({
-        ok: false,
-        error: 'Unit is not available for the selected dates',
-        conflictType: availability.conflictType
-      });
-    }
-
-    // Create booking reference
-    const bookingRef = `BK${Date.now().toString().slice(-8)}`.toUpperCase();
-    const nights = Math.ceil((new Date(checkoutDate) - new Date(checkinDate)) / (1000 * 60 * 60 * 24));
-    const total = totalKes || (unit.base_price_kes || 0) * nights;
-
-    const booking = {
-      booking_ref: bookingRef,
-      unit_id: unitId,
-      guest_name: guestName,
-      guest_phone: guestPhone,
-      checkin_date: checkinDate,
-      checkout_date: checkoutDate,
-      nights,
-      total_kes: total,
-      status: 'confirmed',
-      created_by: req.admin.username,
-      admin_notes: 'Created via admin calendar',
-      created_at: new Date().toISOString()
-    };
-
-    const [bookingId] = await db('bookings').insert(booking);
-
-    // Log creation
-    await db('audit_log').insert({
-      booking_id: bookingId,
-      event_type: 'booking_created',
-      event_data: JSON.stringify({ admin: req.admin.username, source: 'admin_calendar' }),
-      created_at: new Date().toISOString()
-    });
-
-    res.json({
-      ok: true,
-      id: bookingId,
-      data: { ...booking, id: bookingId }
-    });
-  } catch (err) {
-    console.error('[Create Booking]', err);
-    res.status(500).json({ ok: false, error: 'Failed to create booking' });
-  }
-});
-
-/**
- * DELETE /admin/bookings/:id
- * Delete a booking (admin function)
- */
-router.delete('/bookings/:id', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const booking = await db('bookings').where('id', id).first();
-    if (!booking) {
-      return res.status(404).json({ ok: false, error: 'Booking not found' });
-    }
-
-    // Prevent deletion of completed bookings
-    if (booking.status === 'completed' || booking.status === 'paid') {
-      return res.status(400).json({
-        ok: false,
-        error: `Cannot delete ${booking.status} bookings`
-      });
-    }
-
-    // Delete booking
-    await db('bookings').where('id', id).delete();
-
-    // Log deletion
-    await db('audit_log').insert({
-      booking_id: id,
-      event_type: 'booking_deleted',
-      event_data: JSON.stringify({ admin: req.admin.username, bookingRef: booking.booking_ref }),
-      created_at: new Date().toISOString()
-    });
-
-    res.json({ ok: true, message: 'Booking deleted successfully' });
-  } catch (err) {
-    console.error('[Delete Booking]', err);
-    res.status(500).json({ ok: false, error: 'Failed to delete booking' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// WAITLIST ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * GET /admin/waitlist
- * View waitlist entries
- */
-router.get('/waitlist', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { unitId, status, limit = 50, offset = 0 } = req.query;
-
-    let query = db('waitlist');
-
-    if (unitId) query.where('unit_id', unitId);
-    if (status) query.where('status', status);
-
-    const total = await query.clone().count('id as count').first();
-    const entries = await query
-      .orderBy('created_at', 'desc')
-      .limit(parseInt(limit))
-      .offset(parseInt(offset));
-
-    res.json({
-      ok: true,
-      data: entries,
-      count: entries.length,
-      total: total.count
-    });
-  } catch (err) {
-    console.error('[Get Waitlist]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch waitlist' });
-  }
-});
-
-/**
- * POST /admin/waitlist/:id/notify
- * Manually trigger notification for waitlist entry
- */
-router.post('/waitlist/:id/notify', adminAuthMiddleware, permissionMiddleware('write'), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const entry = await db('waitlist').where('id', id).first();
-    if (!entry) {
-      return res.status(404).json({ ok: false, error: 'Waitlist entry not found' });
-    }
-
-    // Update notification status
-    await db('waitlist').where('id', id).update({
-      notified: true,
-      notified_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-
-    // TODO: Queue SMS/Email notification via messageQueue.js
-    console.log(`[Waitlist Notify] Queuing notification for ${entry.guest_phone} - ${entry.unit_id}`);
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('[Waitlist Notify]', err);
-    res.status(500).json({ ok: false, error: 'Failed to notify waitlist entry' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// AUDIT LOG ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * GET /admin/audit-log
- * View audit trail
- */
-router.get('/audit-log', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { bookingId, eventType, limit = 100, offset = 0 } = req.query;
-
-    let query = db('audit_log');
-
-    if (bookingId) query.where('booking_id', bookingId);
-    if (eventType) query.where('event_type', eventType);
-
-    const total = await query.clone().count('id as count').first();
-    const logs = await query
-      .orderBy('created_at', 'desc')
-      .limit(parseInt(limit))
-      .offset(parseInt(offset));
-
-    res.json({
-      ok: true,
-      data: logs,
-      count: logs.length,
-      total: total.count
-    });
-  } catch (err) {
-    console.error('[Get Audit Log]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch audit log' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// ADMIN USER MANAGEMENT ENDPOINTS
-// ─────────────────────────────────────────────────────
-
-/**
- * GET /admin/admins
- * List all admin users (full-access only)
- */
-router.get('/admins', adminAuthMiddleware, fullAccessMiddleware, async (req, res) => {
-  try {
-    const admins = await db('admin_users').where('status', 'active').orderBy('created_at', 'desc');
-
-    // Get properties for each admin
-    const adminsWithProps = await Promise.all(
-      admins.map(async (admin) => {
-        const withProps = await getAdminWithProperties(admin.id);
-        return withProps;
-      })
-    );
-
-    res.json({
-      ok: true,
-      data: adminsWithProps
-    });
-  } catch (err) {
-    console.error('[List Admins]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch admins' });
-  }
-});
-
-/**
- * POST /admin/admins
- * Create new admin user (full-access only)
- */
-router.post('/admins', adminAuthMiddleware, fullAccessMiddleware, async (req, res) => {
-  try {
-    const { username, name, email, password, role = 'property_admin' } = req.body;
-
-    // Validate required fields
-    if (!username || !name || !email || !password) {
-      return res.status(400).json({
-        ok: false,
-        error: 'username, name, email, and password are required'
-      });
-    }
-
-    // Validate username format (alphanumeric + underscore, 3-20 chars)
-    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Username must be 3-20 characters (alphanumeric and underscore only)'
-      });
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Invalid email format'
-      });
-    }
-
-    // Validate password strength (min 8 chars)
-    if (password.length < 8) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Password must be at least 8 characters'
-      });
-    }
-
-    // Check if username/email already exists
-    const existing = await db('admin_users').where('username', username).orWhere('email', email).first();
-    if (existing) {
-      return res.status(409).json({
-        ok: false,
-        error: 'Username or email already in use'
-      });
-    }
-
-    // Hash password
-    const SALT_ROUNDS = 10;
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-
-    // Create admin
-    const result = await db('admin_users').insert({
-      username,
-      name,
-      email,
-      password_hash: passwordHash,
-      role,
-      status: 'active',
-      created_at: db.fn.now(),
-      updated_at: db.fn.now()
-    }).returning('id');
-    const adminId = Array.isArray(result) ? result[0].id : result.id;
-
-    const admin = await getAdminWithProperties(adminId);
-
-    res.status(201).json({
-      ok: true,
-      data: admin
-    });
-  } catch (err) {
-    console.error('[Create Admin]', err);
-    res.status(500).json({ ok: false, error: 'Failed to create admin' });
-  }
-});
-
-/**
- * PUT /admin/admins/:id
- * Update admin user (full-access only)
- */
-router.put('/admins/:id', adminAuthMiddleware, fullAccessMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, email, status, password } = req.body;
-
-    const admin = await db('admin_users').where('id', id).first();
-    if (!admin) {
-      return res.status(404).json({ ok: false, error: 'Admin not found' });
-    }
-
-    const updates = {};
-
-    if (name) updates.name = name;
-    if (email) {
-      // Validate email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({ ok: false, error: 'Invalid email format' });
-      }
-      updates.email = email;
-    }
-    if (status) {
-      if (!['active', 'inactive'].includes(status)) {
-        return res.status(400).json({ ok: false, error: 'Invalid status' });
-      }
-      updates.status = status;
-    }
-    if (password) {
-      if (password.length < 8) {
-        return res.status(400).json({ ok: false, error: 'Password must be at least 8 characters' });
-      }
-      const SALT_ROUNDS = 10;
-      updates.password_hash = await bcrypt.hash(password, SALT_ROUNDS);
-    }
-
-    updates.updated_at = db.fn.now();
-
-    await db('admin_users').where('id', id).update(updates);
-
-    const updatedAdmin = await getAdminWithProperties(id);
-
-    res.json({
-      ok: true,
-      data: updatedAdmin
-    });
-  } catch (err) {
-    console.error('[Update Admin]', err);
-    res.status(500).json({ ok: false, error: 'Failed to update admin' });
-  }
-});
-
-/**
- * DELETE /admin/admins/:id
- * Soft delete admin (deactivate) - full-access only
- */
-router.delete('/admins/:id', adminAuthMiddleware, fullAccessMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Prevent self-delete
-    if (req.admin.id === parseInt(id)) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Cannot delete your own account'
-      });
-    }
-
-    const admin = await db('admin_users').where('id', id).first();
-    if (!admin) {
-      return res.status(404).json({ ok: false, error: 'Admin not found' });
-    }
-
-    // Soft delete: set status to inactive
-    await db('admin_users').where('id', id).update({
-      status: 'inactive',
-      updated_at: db.fn.now()
-    });
-
-    res.json({ ok: true, message: 'Admin deactivated successfully' });
-  } catch (err) {
-    console.error('[Delete Admin]', err);
-    res.status(500).json({ ok: false, error: 'Failed to delete admin' });
-  }
-});
-
-/**
- * GET /admin/admins/:id/properties
- * Get properties for admin (full-access only)
- */
-router.get('/admins/:id/properties', adminAuthMiddleware, fullAccessMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const admin = await db('admin_users').where('id', id).first();
-    if (!admin) {
-      return res.status(404).json({ ok: false, error: 'Admin not found' });
-    }
-
-    let properties = [];
-    
-    if (admin.role === 'property_admin') {
-      properties = await db('admin_properties')
-        .join('properties', 'admin_properties.property_id', '=', 'properties.id')
-        .where('admin_properties.admin_id', id)
-        .select('properties.id', 'properties.property_id', 'properties.name');
-    }
-
-    res.json({
-      ok: true,
-      data: properties,
-      role: admin.role
-    });
-  } catch (err) {
-    console.error('[Get Admin Properties]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch admin properties' });
-  }
-});
-
-/**
- * POST /admin/admins/:id/properties
- * Assign property to admin (full-access only)
- */
-router.post('/admins/:id/properties', adminAuthMiddleware, fullAccessMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { property_id } = req.body;
-
-    if (!property_id) {
-      return res.status(400).json({
-        ok: false,
-        error: 'property_id is required'
-      });
-    }
-
-    const admin = await db('admin_users').where('id', id).first();
-    if (!admin) {
-      return res.status(404).json({ ok: false, error: 'Admin not found' });
-    }
-
-    // Full-admin can't be assigned properties
-    if (admin.role === 'full_admin') {
-      return res.status(400).json({
-        ok: false,
-        error: 'Full-admin users cannot be assigned to properties'
-      });
-    }
-
-    // Find property by property_id or numeric id
-    const property = await db('properties').where('property_id', property_id).orWhere('id', property_id).first();
-    if (!property) {
-      return res.status(404).json({ ok: false, error: 'Property not found' });
-    }
-
-    // Check if already assigned
-    const existing = await db('admin_properties')
-      .where('admin_id', id)
-      .where('property_id', property.id)
-      .first();
-    
-    if (existing) {
-      return res.status(409).json({
-        ok: false,
-        error: 'Admin already assigned to this property'
-      });
-    }
-
-    // Create assignment
-    await db('admin_properties').insert({
-      admin_id: id,
-      property_id: property.id,
-      created_at: db.fn.now()
-    });
-
-    const adminWithProps = await getAdminWithProperties(id);
-
-    res.status(201).json({
-      ok: true,
-      data: adminWithProps
-    });
-  } catch (err) {
-    console.error('[Assign Property]', err);
-    res.status(500).json({ ok: false, error: 'Failed to assign property' });
-  }
-});
-
-/**
- * DELETE /admin/admins/:id/properties/:propertyId
- * Unassign property from admin (full-access only)
- */
-router.delete('/admins/:id/properties/:propertyId', adminAuthMiddleware, fullAccessMiddleware, async (req, res) => {
-  try {
-    const { id, propertyId } = req.params;
-
-    const admin = await db('admin_users').where('id', id).first();
-    if (!admin) {
-      return res.status(404).json({ ok: false, error: 'Admin not found' });
-    }
-
-    // Find property
-    const property = await db('properties').where('property_id', propertyId).orWhere('id', propertyId).first();
-    if (!property) {
-      return res.status(404).json({ ok: false, error: 'Property not found' });
-    }
-
-    // Remove assignment
-    const deleted = await db('admin_properties')
-      .where('admin_id', id)
-      .where('property_id', property.id)
-      .delete();
-
-    if (deleted === 0) {
-      return res.status(404).json({
-        ok: false,
-        error: 'Assignment not found'
-      });
-    }
-
-    const adminWithProps = await getAdminWithProperties(id);
-
-    res.json({
-      ok: true,
-      data: adminWithProps
-    });
-  } catch (err) {
-    console.error('[Unassign Property]', err);
-    res.status(500).json({ ok: false, error: 'Failed to unassign property' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// TENANTS ENDPOINTS (RENTAL SYSTEM)
-// ─────────────────────────────────────────────────────
-
-/**
- * POST /admin/tenants
- * Create a new tenant record
- */
-router.post('/tenants', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { 
-      tenant_phone, 
-      tenant_name, 
-      tenant_email, 
-      id_number, 
-      next_of_kin_phone, 
-      next_of_kin_name, 
-      notes 
-    } = req.body;
-
-    if (!tenant_phone || !tenant_name) {
-      return res.status(400).json({ ok: false, error: 'tenant_phone and tenant_name are required' });
-    }
-
-    const tenant = await createTenant({
-      tenant_phone,
-      tenant_name,
-      tenant_email,
-      id_number,
-      next_of_kin_phone,
-      next_of_kin_name,
-      notes
-    });
-
-    res.status(201).json({
-      ok: true,
-      data: tenant
-    });
-  } catch (err) {
-    console.error('[POST Tenants]', err);
-    const message = err.message.includes('already exists') ? err.message : 'Failed to create tenant';
-    res.status(400).json({ ok: false, error: message });
-  }
-});
-
-/**
- * GET /admin/tenants
- * List all tenants with pagination
- */
-router.get('/tenants', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { limit = 50, offset = 0 } = req.query;
-
-    const tenants = await listTenants({
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-
-    res.json({
-      ok: true,
-      data: tenants,
-      count: tenants.length
-    });
-  } catch (err) {
-    console.error('[GET Tenants]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch tenants' });
-  }
-});
-
-/**
- * GET /admin/tenants/:phone
- * Get tenant by phone number (primary lookup for M-Pesa callbacks)
- */
-router.get('/tenants/:phone', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { phone } = req.params;
-
-    const tenant = await getTenantByPhone(phone);
-
-    if (!tenant) {
-      return res.status(404).json({ ok: false, error: 'Tenant not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: tenant
-    });
-  } catch (err) {
-    console.error('[GET Tenant by Phone]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch tenant' });
-  }
-});
-
-/**
- * PUT /admin/tenants/:id
- * Update tenant information
- */
-router.put('/tenants/:id', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { 
-      tenant_name, 
-      tenant_email, 
-      id_number, 
-      next_of_kin_phone, 
-      next_of_kin_name, 
-      notes 
-    } = req.body;
-
-    // Build update object with only provided fields
-    const updates = {};
-    if (tenant_name !== undefined) updates.tenant_name = tenant_name;
-    if (tenant_email !== undefined) updates.tenant_email = tenant_email;
-    if (id_number !== undefined) updates.id_number = id_number;
-    if (next_of_kin_phone !== undefined) updates.next_of_kin_phone = next_of_kin_phone;
-    if (next_of_kin_name !== undefined) updates.next_of_kin_name = next_of_kin_name;
-    if (notes !== undefined) updates.notes = notes;
-
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ ok: false, error: 'No fields to update' });
-    }
-
-    const tenant = await updateTenant(id, updates);
-
-    if (!tenant) {
-      return res.status(404).json({ ok: false, error: 'Tenant not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: tenant
-    });
-  } catch (err) {
-    console.error('[PUT Tenants]', err);
-    res.status(500).json({ ok: false, error: 'Failed to update tenant' });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// RENTAL CONTRACTS ENDPOINTS (RENTAL SYSTEM)
-// ─────────────────────────────────────────────────────
-
-/**
- * POST /admin/contracts
- * Create a new rental contract
- */
-router.post('/contracts', adminAuthMiddleware, async (req, res) => {
-  try {
-    const {
-      tenant_id,
-      unit_id,
-      property_id,
-      start_date,
-      end_date,
-      monthly_rent_kes,
-      payment_frequency,
-      security_deposit_kes,
-      utilities_deposit_kes,
-      notes
-    } = req.body;
-
-    if (!tenant_id || !unit_id || !property_id || !start_date || !monthly_rent_kes) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Required fields: tenant_id, unit_id, property_id, start_date, monthly_rent_kes'
-      });
-    }
-
-    const contract = await createContract({
-      tenant_id,
-      unit_id,
-      property_id,
-      start_date,
-      end_date,
-      monthly_rent_kes,
-      payment_frequency,
-      security_deposit_kes,
-      utilities_deposit_kes,
-      notes
-    });
-
-    res.status(201).json({
-      ok: true,
-      data: contract
-    });
-  } catch (err) {
-    console.error('[POST Contracts]', err);
-    res.status(400).json({ ok: false, error: err.message });
-  }
-});
-
-/**
- * GET /admin/contracts
- * List all contracts with optional filters
- */
-router.get('/contracts', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { tenant_id, unit_id, status, limit = 50, offset = 0 } = req.query;
-
-    const contracts = await listContracts({
-      tenant_id: tenant_id ? parseInt(tenant_id) : null,
-      unit_id: unit_id ? parseInt(unit_id) : null,
-      status,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-
-    res.json({
-      ok: true,
-      data: contracts,
-      count: contracts.length
-    });
-  } catch (err) {
-    console.error('[GET Contracts]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch contracts' });
-  }
-});
-
-/**
- * GET /admin/contracts/:id
- * Get contract by ID
- */
-router.get('/contracts/:id', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const contract = await getContractById(id);
-
-    if (!contract) {
-      return res.status(404).json({ ok: false, error: 'Contract not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: contract
-    });
-  } catch (err) {
-    console.error('[GET Contract by ID]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch contract' });
-  }
-});
-
-/**
- * GET /admin/contracts/tenant/:tenant_id/active
- * Get active contract for a specific tenant
- */
-router.get('/contracts/tenant/:tenant_id/active', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { tenant_id } = req.params;
-
-    const contract = await getActiveTenantContract(parseInt(tenant_id));
-
-    if (!contract) {
-      return res.status(404).json({ ok: false, error: 'No active contract found' });
-    }
-
-    res.json({
-      ok: true,
-      data: contract
-    });
-  } catch (err) {
-    console.error('[GET Active Contract]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch contract' });
-  }
-});
-
-/**
- * PUT /admin/contracts/:id
- * Update contract details
- */
-router.put('/contracts/:id', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      monthly_rent_kes,
-      payment_frequency,
-      security_deposit_kes,
-      utilities_deposit_kes,
-      status,
-      notes,
-      end_date
-    } = req.body;
-
-    // Build update object with only provided fields
-    const updates = {};
-    if (monthly_rent_kes !== undefined) updates.monthly_rent_kes = monthly_rent_kes;
-    if (payment_frequency !== undefined) updates.payment_frequency = payment_frequency;
-    if (security_deposit_kes !== undefined) updates.security_deposit_kes = security_deposit_kes;
-    if (utilities_deposit_kes !== undefined) updates.utilities_deposit_kes = utilities_deposit_kes;
-    if (status !== undefined) updates.status = status;
-    if (notes !== undefined) updates.contract_notes = notes;
-    if (end_date !== undefined) updates.end_date = end_date;
-
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ ok: false, error: 'No fields to update' });
-    }
-
-    const contract = await updateContract(id, updates);
-
-    if (!contract) {
-      return res.status(404).json({ ok: false, error: 'Contract not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: contract
-    });
-  } catch (err) {
-    console.error('[PUT Contracts]', err);
-    res.status(400).json({ ok: false, error: err.message });
-  }
-});
-
-/**
- * POST /admin/contracts/:id/end
- * End a contract (set end_date and status to 'ended')
- */
-router.post('/contracts/:id/end', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { termination_reason } = req.body;
-
-    const contract = await endContract(id, termination_reason);
-
-    if (!contract) {
-      return res.status(404).json({ ok: false, error: 'Contract not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: contract
-    });
-  } catch (err) {
-    console.error('[POST End Contract]', err);
-    res.status(400).json({ ok: false, error: err.message });
-  }
-});
-
-// ─────────────────────────────────────────────────────
-// RENTAL PAYMENTS ENDPOINTS (RENTAL SYSTEM)
-// ─────────────────────────────────────────────────────
-
-/**
- * POST /admin/payments
- * Record a payment for a rental contract
- * Handles partial payments and overpayment automatically
- */
-router.post('/payments', adminAuthMiddleware, async (req, res) => {
-  try {
-    const {
-      contract_id,
-      tenant_id,
-      unit_id,
-      month,
-      year,
-      amount_paid_kes,
-      mpesa_receipt,
-      mpesa_phone,
-      mpesa_reference,
-      notes
-    } = req.body;
-
-    if (!contract_id || !tenant_id || !unit_id || !month || !year || amount_paid_kes === undefined) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Required fields: contract_id, tenant_id, unit_id, month, year, amount_paid_kes'
-      });
-    }
-
-    const payment = await recordPayment({
-      contract_id,
-      tenant_id,
-      unit_id,
-      month,
-      year,
-      amount_paid_kes,
-      mpesa_receipt,
-      mpesa_phone,
-      mpesa_reference,
-      notes
-    });
-
-    res.status(201).json({
-      ok: true,
-      data: payment
-    });
-  } catch (err) {
-    console.error('[POST Payments]', err);
-    res.status(400).json({ ok: false, error: err.message });
-  }
-});
-
-/**
- * GET /admin/payments
- * List all payments with optional filters
- */
-router.get('/payments', adminAuthMiddleware, async (req, res) => {
-  try {
-    const {
-      contract_id,
-      tenant_id,
-      unit_id,
-      status,
-      from_month,
-      to_month,
-      limit = 50,
-      offset = 0
-    } = req.query;
-
-    const payments = await listPayments({
-      contract_id: contract_id ? contract_id : null,
-      tenant_id: tenant_id ? parseInt(tenant_id) : null,
-      unit_id: unit_id ? parseInt(unit_id) : null,
-      status,
-      from_month,
-      to_month,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-
-    res.json({
-      ok: true,
-      data: payments,
-      count: payments.length
-    });
-  } catch (err) {
-    console.error('[GET Payments]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch payments' });
-  }
-});
-
-/**
- * GET /admin/payments/:id
- * Get payment by ID
- */
-router.get('/payments/:id', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const payment = await getPaymentById(id);
-
-    if (!payment) {
-      return res.status(404).json({ ok: false, error: 'Payment not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: payment
-    });
-  } catch (err) {
-    console.error('[GET Payment by ID]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch payment' });
-  }
-});
-
-/**
- * GET /admin/payments/contract/:contract_id/month/:month_year
- * Get payment for a specific month
- */
-router.get('/payments/contract/:contract_id/month/:month_year', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { contract_id, month_year } = req.params;
-
-    const payment = await getMonthlyPayment(contract_id, month_year);
-
-    if (!payment) {
-      return res.status(404).json({ ok: false, error: 'No payment found for this month' });
-    }
-
-    res.json({
-      ok: true,
-      data: payment
-    });
-  } catch (err) {
-    console.error('[GET Monthly Payment]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch payment' });
-  }
-});
-
-/**
- * GET /admin/tenants/:tenant_id/arrears
- * Get outstanding arrears for a tenant
- */
-router.get('/tenants/:tenant_id/arrears', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { tenant_id } = req.params;
-
-    const arrears = await getTenantArrears(parseInt(tenant_id));
-
-    res.json({
-      ok: true,
-      data: arrears
-    });
-  } catch (err) {
-    console.error('[GET Tenant Arrears]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch arrears' });
-  }
-});
-
-/**
- * GET /admin/contracts/:contract_id/payment-summary
- * Get payment summary for a contract
- */
-router.get('/contracts/:contract_id/payment-summary', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { contract_id } = req.params;
-
-    const summary = await getContractPaymentSummary(contract_id);
-
-    res.json({
-      ok: true,
-      data: summary
-    });
-  } catch (err) {
-    console.error('[GET Payment Summary]', err);
-    res.status(500).json({ ok: false, error: 'Failed to fetch payment summary' });
-  }
-});
-
-/**
- * POST /admin/payments/:id/mark-late
- * Mark a payment as late (if due date has passed)
- */
-router.post('/payments/:id/mark-late', adminAuthMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const payment = await updatePaymentStatusToLate(id);
-
-    if (!payment) {
-      return res.status(404).json({ ok: false, error: 'Payment not found' });
-    }
-
-    res.json({
-      ok: true,
-      data: payment
-    });
-  } catch (err) {
-    console.error('[POST Mark Late]', err);
-    res.status(400).json({ ok: false, error: err.message });
-  }
-});
-
+  const updates = { updated_at: db.fn.now() };
+  for (const key of ['monthly_rent_kes', 'security_deposit_kes', 'utilities_deposit_kes']) if (input[key] !== undefined) updates[key] = input[key];
+  if (input.notes !== undefined) updates.contract_notes = input.notes;
+  const [data] = await db('rental_contracts').where('id', c.id).update(updates).returning('*'); ok(res, data);
+}));
+router.post('/contracts/:id/end', h.route(async (req, res) => {
+  const c = await a.record(req, 'rental_contracts', h.z.uuid().parse(req.params.id));
+  const today = new Date().toISOString().slice(0, 10);
+  const [data] = await db('rental_contracts').where('id', c.id).update({ status: 'ended', end_date: today > c.start_date ? today : c.start_date, termination_date: today, termination_reason: h.text(1000).parse(req.body.termination_reason || '') }).returning('*'); ok(res, data);
+}));
+const paymentQuery = req => a.unitScope(db('rental_payments as p').join('tenants as t', 'p.tenant_id', 't.id').select('p.*', 't.tenant_name', 't.tenant_phone'), req, 'p.unit_id');
+router.post('/payments', h.route(async (req, res) => {
+  const c = await a.record(req, 'rental_contracts', h.z.uuid().parse(req.body.contract_id));
+  if (req.body.tenant_id && Number(req.body.tenant_id) !== c.tenant_id || req.body.unit_id && Number(req.body.unit_id) !== c.unit_id) throw new h.HttpError(400, 'Payment must match the contract');
+  const input = h.z.object({ month: h.integer(1, 12), year: h.integer(2000, 2200), amount_paid_kes: h.integer(1), notes: h.text(3000).optional(), mpesa_receipt: h.text(50).optional() }).parse(req.body);
+  const key = h.required(100).parse(req.headers['idempotency-key'] || req.body.idempotency_key);
+  const data = await payments.recordPayment({ ...input, contract_id: c.id, tenant_id: c.tenant_id, unit_id: c.unit_id, idempotency_key: key });
+  res.status(201); ok(res, data);
+}));
+router.get('/payments', h.route(async (req, res) => {
+  const query = paymentQuery(req);
+  for (const key of ['contract_id', 'tenant_id', 'unit_id', 'status']) if (req.query[key]) query.where(`p.${key}`, req.query[key]);
+  const { limit, offset } = h.page(req.query); ok(res, await query.orderBy('p.created_at', 'desc').limit(limit).offset(offset));
+}));
+router.get('/payments/contract/:id/month/:month', h.route(async (req, res) => {
+  const c = await a.record(req, 'rental_contracts', h.z.uuid().parse(req.params.id));
+  const value = h.z.string().regex(/^\d{4}-\d{2}$/).parse(req.params.month);
+  const [year, month] = value.split('-').map(Number);
+  ok(res, await payments.getMonthlyPayment(c.id, month, year));
+}));
+router.get('/payments/:id', h.route(async (req, res) => {
+  const p = await a.record(req, 'rental_payments', h.z.uuid().parse(req.params.id));
+  ok(res, await paymentQuery(req).where('p.id', p.id).first());
+}));
+router.post('/payments/:id/mark-late', h.route(async (req, res) => {
+  const p = await a.record(req, 'rental_payments', h.z.uuid().parse(req.params.id)); ok(res, await payments.updatePaymentStatusToLate(p.id));
+}));
+router.get('/arrears', h.route(async (req, res) => {
+  const contracts = await contractQuery(req);
+  const byTenant = new Map();
+  for (const c of contracts) if (!byTenant.has(c.tenant_id)) byTenant.set(c.tenant_id, await payments.getTenantArrears(c.tenant_id));
+  ok(res, contracts.map(c => {
+    const records = byTenant.get(c.tenant_id).records.filter(p => p.contract_id === c.id);
+    return {...c, records, total_outstanding_kes: records.reduce((sum,p)=>sum+p.amount_outstanding_kes,0)};
+  }).filter(c=>c.total_outstanding_kes>0));
+}));
+router.get('/tenants/:id/arrears', h.route(async (req, res) => {
+  const t = await a.record(req, 'tenants', h.integer(1).parse(req.params.id)); ok(res, await payments.getTenantArrears(t.id));
+}));
+router.get('/contracts/:id/payment-summary', h.route(async (req, res) => {
+  const c = await a.record(req, 'rental_contracts', h.z.uuid().parse(req.params.id)); ok(res, await payments.getContractPaymentSummary(c.id));
+}));
+const adminFields = ['id', 'username', 'name', 'email', 'role', 'status', 'last_login', 'created_at'];
+router.get('/admins', auth.fullAccessMiddleware, h.route(async (req, res) => {
+  const data = await db('admin_users').select(adminFields).orderBy('name');
+  for (const user of data) user.properties = await db('admin_properties as m').join('properties as p', 'm.property_id', 'p.id').where('m.admin_id', user.id).select('p.id', 'p.property_id', 'p.name', 'm.is_owner');
+  ok(res, data);
+}));
+router.post('/admins', auth.fullAccessMiddleware, h.route(async (req, res) => {
+  const input = workspace.accountSchema.extend({ role: h.z.enum(['full_admin', 'property_admin']), status: h.z.enum(['active', 'inactive']).default('active') }).parse(req.body);
+  const { password, ...data } = input;
+  const [user] = await db('admin_users').insert({ ...data, password_hash: await bcrypt.hash(password, 12) }).returning(adminFields); res.status(201); ok(res, user);
+}));
+router.put('/admins/:id', auth.fullAccessMiddleware, h.route(async (req, res) => {
+  const id = h.integer(1).parse(req.params.id);
+  const input = workspace.accountSchema.extend({ role: h.z.enum(['full_admin', 'property_admin']), status: h.z.enum(['active', 'inactive']) }).partial().parse(req.body);
+  if (id === req.admin.id && (input.role === 'property_admin' || input.status === 'inactive')) throw new h.HttpError(409, 'You cannot remove your own platform access');
+  if (input.password) { input.password_hash = await bcrypt.hash(input.password, 12); delete input.password; }
+  const data = await db.transaction(async trx => {
+    const [user] = await trx('admin_users').where({ id }).update({ ...input, updated_at: trx.fn.now() }).returning(adminFields);
+    if (!user) throw new h.HttpError(404, 'Account not found');
+    await trx('admin_sessions').where('admin_id', id).delete(); return user;
+  });
+  ok(res, data);
+}));
+router.delete('/admins/:id', auth.fullAccessMiddleware, h.route(async (req, res) => {
+  const id = h.integer(1).parse(req.params.id);
+  if (id === req.admin.id) throw new h.HttpError(409, 'You cannot deactivate yourself');
+  await db.transaction(async trx => {
+    await trx('admin_users').where({ id }).update({ status: 'inactive' }); await trx('admin_sessions').where('admin_id', id).delete();
+  }); res.json({ ok: true });
+}));
+router.get('/admins/:id/properties', auth.fullAccessMiddleware, h.route(async (req, res) => {
+  ok(res, await db('admin_properties as m').join('properties as p', 'm.property_id', 'p.id').where('m.admin_id', h.integer(1).parse(req.params.id)).select('p.id', 'p.property_id', 'p.name', 'm.is_owner'));
+}));
+router.post('/admins/:id/properties', auth.fullAccessMiddleware, h.route(async (req, res) => {
+  const p = await a.property(req, req.body.property_id);
+  await db('admin_properties').insert({ admin_id: h.integer(1).parse(req.params.id), property_id: p.id, is_owner: req.body.is_owner === true }).onConflict(['admin_id', 'property_id']).merge(['is_owner']); res.json({ ok: true });
+}));
+router.delete('/admins/:id/properties/:propertyId', auth.fullAccessMiddleware, h.route(async (req, res) => {
+  const p = await a.property(req, req.params.propertyId);
+  const member = await db('admin_properties').where({ admin_id: h.integer(1).parse(req.params.id), property_id: p.id }).first();
+  if (member?.is_owner) throw new h.HttpError(409, 'Assign another owner before removing property ownership');
+  if (member) await db('admin_properties').where('id', member.id).delete(); res.json({ ok: true });
+}));
+router.get('/payment-attempts', h.route(async (req, res) => {
+  const rows = await a.scope(db('payment_attempts'), req).orderBy('created_at', 'desc').limit(200);
+  ok(res, rows.map(p => ({ id: p.id, kind: p.kind, amount_kes: p.amount_kes, status: p.status, has_callback: !!p.callback, reference: `NYH-${p.id.slice(0,8).toUpperCase()}`, created_at: p.created_at })));
+}));
+router.post('/payment-attempts/:id/reconcile', h.rateLimit('admin-reconcile', 20, 60000), h.route(async (req, res) => {
+  const p = await a.record(req, 'payment_attempts', h.z.uuid().parse(req.params.id));
+  if (!p.callback) throw new h.HttpError(409, 'No callback has arrived. Check the merchant statement before resolving this payment.');
+  await require('./mpesaRoutes').reconcile(p.id); res.json({ ok: true });
+}));
 module.exports = router;
