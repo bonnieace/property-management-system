@@ -2,7 +2,7 @@ require('dotenv').config();
 const db = require('../src/db');
 const { inspectUpgrade } = require('../src/upgradePreflight');
 
-const migrationName = value => typeof value === 'string' ? value : value?.name;
+const migrationName = value => typeof value === 'string' ? value : value?.name || value?.file;
 
 (async () => {
   try {
